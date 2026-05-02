@@ -173,3 +173,47 @@ export function useVoiceRecorder() {
     cancelRecording,
   };
 }
+
+// ── OFFLINE FALLBACK ─────────────────────────────────────────────────────────  
+// Called when: navigator.onLine === false OR backend returns STT_FAILED
+
+export function useOfflineSpeech(onResult) {  
+  const recognitionRef = useRef(null);
+
+  const startOffline = useCallback((langCode = 'hi-IN') => {  
+    const SpeechRecognition =  
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {  
+      onResult({ transcript: '', error: 'no_browser_stt' });  
+      return;  
+    }
+
+    const rec = new SpeechRecognition();  
+    recognitionRef.current = rec;
+
+    rec.lang = langCode;           // e.g. 'hi-IN', 'kn-IN', 'ta-IN'  
+    rec.continuous = false;  
+    rec.interimResults = false;  
+    rec.maxAlternatives = 3;       // get top 3 guesses for dialect variety
+
+    rec.onresult = (event) => {  
+      // Pick highest confidence result  
+      const best = Array.from(event.results[0])  
+        .sort((a, b) => b.confidence - a.confidence)[0];  
+      onResult({ transcript: best.transcript, confidence: best.confidence });  
+    };
+
+    rec.onerror = (event) => {  
+      onResult({ transcript: '', error: event.error });  
+    };
+
+    rec.start();  
+  }, [onResult]);
+
+  const stopOffline = useCallback(() => {  
+    recognitionRef.current?.stop();  
+  }, []);
+
+  return { startOffline, stopOffline };  
+}

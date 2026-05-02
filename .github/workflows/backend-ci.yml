@@ -1,0 +1,40 @@
+name: Backend CI
+
+on:
+  push:
+    paths: ['apps/backend/**', 'apps/web/**']
+  pull_request:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check no API keys leaked into frontend source
+        run: |
+          echo "Scanning apps/web/src for leaked keys..."
+          # Check for Anthropic key pattern
+          if grep -r "sk-ant-" apps/web/src/; then
+            echo "FAIL: Anthropic key found in frontend!" && exit 1
+          fi
+          # Check for env var names that should never be in frontend
+          if grep -r "ANTHROPIC_API_KEY\|GROQ_API_KEY\|SUPABASE_SERVICE_KEY" apps/web/src/; then
+            echo "FAIL: Secret env var name found in frontend!" && exit 1
+          fi
+          echo "Security scan passed ✓"
+
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g pnpm
+      - run: pnpm install
+      - name: Type check
+        run: pnpm exec tsc --noEmit

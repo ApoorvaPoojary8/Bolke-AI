@@ -48,12 +48,15 @@ export const MAX_RECORDING_SECONDS = 15;
 
 // App states (screen state machine)
 export const STATES = {
-  HOME: 'home',
-  LISTENING: 'listening',
-  THINKING: 'thinking',
-  REPLY: 'reply',
-  ACTION: 'action',
-  FAILURE: 'failure',
+  HOME:         'home',
+  LISTENING:    'listening',
+  THINKING:     'thinking',
+  REPLY:        'reply',
+  ACTION:       'action',
+  FAILURE:      'failure',
+  IMAGE:        'image',
+  IMAGE_REPLY:  'image_reply',
+  CHAT:         'chat',
 };
 
 // Demo responses for when backend is not available

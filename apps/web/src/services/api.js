@@ -47,6 +47,42 @@ export async function sendVoiceQuery(audioBlob, deviceId, langHint = null) {
 }
 
 /**
+ * Send a text-based chat message to backend
+ * POST /v1/chat
+ *
+ * @param {string} message - Text message from user
+ * @param {string} language - Language hint (hi, kn, ta, etc.)
+ * @returns {Promise<Object>} Chat response with reply_text, intent, icon, etc.
+ */
+export async function sendChatMessage(message, language = 'hi') {
+  if (DEMO_MODE) {
+    return simulateDemoResponse();
+  }
+
+  const token = localStorage.getItem('bolke_token');
+
+  const response = await fetch(`${API_BASE_URL}/v1/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message, language }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new VoiceApiError(
+      error.error_code || 'CHAT_ERROR',
+      error.user_message || 'Message bhejne mein dikkat aayi.',
+      null
+    );
+  }
+
+  return response.json();
+}
+
+/**
  * Trigger an action via n8n — Model_&_API.md §7.4
  */
 export async function triggerAction(intent, params = {}) {

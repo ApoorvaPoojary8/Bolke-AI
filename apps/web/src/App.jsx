@@ -12,7 +12,10 @@ import { ThinkingScreen } from './screens/ThinkingScreen';
 import { ReplyScreen } from './screens/ReplyScreen';
 import { ActionScreen } from './screens/ActionScreen';
 import { FailureScreen } from './screens/FailureScreen';
-import { useVoiceRecorder } from './hooks/useVoiceRecorder';
+import { ImageScreen } from './screens/ImageScreen';
+import { ImageReplyScreen } from './screens/ImageReplyScreen';
+import { ChatScreen } from './screens/ChatScreen';
+import { useVoiceRecorder, useOfflineSpeech } from './hooks/useVoiceRecorder';
 import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { useOfflineCache } from './hooks/useOfflineCache';
 import { sendVoiceQuery, triggerAction, getDeviceId } from './services/api';
@@ -27,6 +30,25 @@ export default function App() {
 
   // Hooks
   const { isRecording, audioLevel, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+  const { startOffline, stopOffline } = useOfflineSpeech(async (result) => {
+    // This callback is triggered when offline speech recognition finishes
+    if (result.error) {
+      setErrorMessage('Offline voice failed.');
+      setScreen(STATES.FAILURE);
+      return;
+    }
+    
+    // Process the offline text
+    const lang = localStorage.getItem('bolke_last_language') ?? 'hi';
+    const { matchOfflineIntent } = await import('./utils/offlineIntents');
+    const matched = matchOfflineIntent(result.transcript, lang);
+    setResponse(matched);
+    setScreen(STATES.REPLY);
+    
+    // Offline TTS using Web Speech API
+    const langMap = { hi: 'hi-IN', kn: 'kn-IN', ta: 'ta-IN', te: 'te-IN', bn: 'bn-IN', mr: 'mr-IN', en: 'en-IN' };
+    speakText(matched.reply, langMap[matched.language] || 'hi-IN');
+  });
   const { isPlaying, playAudio, speakText, stopAudio } = useAudioPlayer();
   const { recentQueries, isOnline, saveQuery } = useOfflineCache();
 
@@ -44,6 +66,15 @@ export default function App() {
   const handleStartRecording = useCallback(async () => {
     try {
       stopAudio();
+      
+      if (!navigator.onLine) {
+        // Offline mode — use browser STT
+        setScreen(STATES.LISTENING);
+        const langCode = (localStorage.getItem('bolke_last_language') ?? 'hi') + '-IN';
+        startOffline(langCode);
+        return;
+      }
+      
       await startRecording();
       setScreen(STATES.LISTENING);
     } catch (err) {
@@ -85,6 +116,11 @@ export default function App() {
       // Set response and move to reply screen
       setResponse(result);
       setScreen(STATES.REPLY);
+      
+      // Update the last used language
+      if (result.language) {
+        localStorage.setItem('bolke_last_language', result.language);
+      }
 
       // Auto-play audio — design.md §4.3 "voice plays the moment screen appears"
       if (result.reply_audio_url) {
@@ -177,6 +213,14 @@ export default function App() {
     speakText(errorMessage || 'Maaf kijiye, dobara bolen.', 'hi-IN');
   }, [speakText, errorMessage]);
 
+  const [imageResult, setImageResult] = useState(null);
+
+  const handleImageResult = useCallback((result) => {
+    setImageResult(result);
+    setScreen(STATES.IMAGE_REPLY);
+    localStorage.setItem('bolke_last_language', result.language ?? 'hi');
+  }, []);
+
   // ──────────────────────────────────────
   // Render current screen
   // ──────────────────────────────────────
@@ -186,6 +230,8 @@ export default function App() {
         return (
           <HomeScreen
             onStartRecording={handleStartRecording}
+            onOpenImage={() => setScreen(STATES.IMAGE)}
+            onOpenChat={() => setScreen(STATES.CHAT)}
             recentQueries={recentQueries}
             isOnline={isOnline}
           />
@@ -235,10 +281,41 @@ export default function App() {
           />
         );
 
+      case STATES.IMAGE:
+        return (
+          <ImageScreen
+            onResult={handleImageResult}
+            onBack={handleGoHome}
+            speakText={speakText}
+          />
+        );
+
+      case STATES.IMAGE_REPLY:
+        return (
+          <ImageReplyScreen
+            result={imageResult}
+            onHome={handleGoHome}
+            onSpeakAgain={handleSpeakAgain}
+            playAudio={playAudio}
+          />
+        );
+
+      case STATES.CHAT:
+        return (
+          <ChatScreen
+            onBack={handleGoHome}
+            onOpenImage={() => setScreen(STATES.IMAGE)}
+            playAudio={playAudio}
+            speakText={speakText}
+          />
+        );
+
       default:
         return (
           <HomeScreen
             onStartRecording={handleStartRecording}
+            onOpenImage={() => setScreen(STATES.IMAGE)}
+            onOpenChat={() => setScreen(STATES.CHAT)}
             recentQueries={recentQueries}
             isOnline={isOnline}
           />
