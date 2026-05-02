@@ -2,17 +2,16 @@
  * voice.ts — Voice Route
  *
  * Pipeline:
- *  Audio (multipart) → Deepgram STT → Groq LLM → Cartesia TTS → Response
+ *  Audio (multipart) → Deepgram STT → Groq LLM → ElevenLabs TTS → Response
  *
  * TTS mode:
- *  - If CARTESIA_API_KEY is set: audio is generated server-side and
- *    uploaded to Supabase. Client plays from reply_audio_url.
- *  - If not set: reply_audio_url is null, tts_mode='browser',
- *    client falls back to browser speechSynthesis.
+ *  - If ELEVENLABS_API_KEY is set: audio is generated server-side via
+ *    ElevenLabs Multilingual v2 and uploaded to Supabase.
+ *  - Falls back to Cartesia → browser speechSynthesis if ElevenLabs unavailable.
  */
 
 import { transcribeAudio }  from '../services/stt/deepgramStt.js';
-import { synthesise }       from '../services/tts/cartesiaTts.js';
+import { synthesise }       from '../services/tts/elevenLabsTts.js';
 import { routeToAI }        from '../services/ai/router.js';
 import { normalizeDialect } from '../services/ai/normalizer.js';
 import { uploadAudio, logQuery } from '../utils/storage.js';
@@ -80,10 +79,10 @@ export default async function voiceRoutes(app: any) {
     // 3. AI intent parsing — Groq primary
     const aiReply = await routeToAI(transcript);
 
-    // 4. TTS — Cartesia Sonic (returns null if key not set → browser TTS)
+    // 4. TTS — ElevenLabs Multilingual v2 (falls back to Cartesia → browser TTS)
     const audioOut = await synthesise(aiReply.reply, aiReply.language);
 
-    // 5. Upload MP3 if Cartesia generated audio
+    // 5. Upload MP3 if TTS generated audio
     let replyAudioUrl: string | null = null;
     if (audioOut !== null) {
       const filename = `tts/${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;
@@ -110,7 +109,7 @@ export default async function voiceRoutes(app: any) {
       language:        aiReply.language,
       reply_text:      aiReply.reply,
       reply_audio_url: replyAudioUrl,
-      tts_mode:        replyAudioUrl ? 'cartesia' : 'browser',
+      tts_mode:        replyAudioUrl ? 'elevenlabs' : 'browser',
       intent:          aiReply.intent,
       icon:            aiReply.icon,
       action,

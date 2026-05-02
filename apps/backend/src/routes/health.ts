@@ -1,8 +1,8 @@
 /**
  * health.ts — Health Check Route
  *
- * Reports status of all AI providers in the new stack:
- * Groq (LLM + STT fallback), Deepgram (STT), Cartesia (TTS)
+ * Reports status of all AI providers in the stack:
+ * Groq (LLM + STT fallback), Deepgram (STT), ElevenLabs (TTS primary), Cartesia (TTS fallback)
  */
 
 import Groq from 'groq-sdk';
@@ -20,14 +20,23 @@ export default async function healthRoutes(app: any) {
       });
     } catch { groqStatus = 'degraded'; }
 
+    // Determine TTS provider chain
+    const hasElevenLabs = !!process.env.ELEVENLABS_API_KEY;
+    const hasCartesia   = !!process.env.CARTESIA_API_KEY;
+    let ttsStatus = 'browser';
+    if (hasElevenLabs) ttsStatus = 'elevenlabs';
+    else if (hasCartesia) ttsStatus = 'cartesia';
+
     return reply.send({
-      status:   'ok',
-      groq:     groqStatus,
-      deepgram: process.env.DEEPGRAM_API_KEY ? 'configured' : 'no-key',
-      cartesia: process.env.CARTESIA_API_KEY  ? 'configured' : 'no-key (browser TTS)',
-      livekit:  process.env.LIVEKIT_URL       ? 'configured' : 'disabled (MediaRecorder)',
-      stt:      process.env.DEEPGRAM_API_KEY  ? 'deepgram'   : 'groq-whisper',
-      tts:      process.env.CARTESIA_API_KEY  ? 'cartesia'   : 'browser',
+      status:      'ok',
+      groq:        groqStatus,
+      deepgram:    process.env.DEEPGRAM_API_KEY    ? 'configured' : 'no-key',
+      elevenlabs:  hasElevenLabs                   ? 'configured' : 'no-key',
+      cartesia:    hasCartesia                     ? 'configured (fallback)' : 'no-key',
+      livekit:     process.env.LIVEKIT_URL         ? 'configured' : 'disabled (MediaRecorder)',
+      stt:         process.env.DEEPGRAM_API_KEY    ? 'deepgram'   : 'groq-whisper',
+      tts:         ttsStatus,
     });
   });
 }
+

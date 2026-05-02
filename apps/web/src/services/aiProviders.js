@@ -1,13 +1,14 @@
 /**
  * BolKe — Multi-Provider AI Service (Frontend)
  *
- * NEW STACK:
- *  STT: Deepgram Nova-3      — best Indian language accuracy, real-time capable
- *  LLM: Groq Llama 3.3 70B  — primary (ultra-fast LPU, JSON mode)
- *       Groq Llama 3.1 8B   — fast fallback
- *       Pollinations         — last resort (no key needed)
- *  TTS: Cartesia Sonic-2     — natural-sounding, ultra-low latency
- *       Browser speechSynthesis — fallback (free, built-in)
+ * STACK:
+ *  STT: Deepgram Nova-3        — best Indian language accuracy, real-time capable
+ *  LLM: Groq Llama 3.3 70B    — primary (ultra-fast LPU, JSON mode)
+ *       Groq Llama 3.1 8B     — fast fallback
+ *       Pollinations           — last resort (no key needed)
+ *  TTS: ElevenLabs Multilingual v2 — primary (high-quality, dialect-accurate)
+ *       Cartesia Sonic-2       — secondary fallback
+ *       Browser speechSynthesis — last resort (free, built-in)
  *
  * Transport: LiveKit (optional, for real-time streaming mode)
  *            MediaRecorder (default, works without LiveKit)
@@ -423,7 +424,71 @@ export function transcribeWithBrowser(langHint = 'hi') {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TTS — CARTESIA SONIC-2 (Primary)
+// TTS — ELEVENLABS MULTILINGUAL V2 (Primary)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ElevenLabs voice IDs
+const EL_VOICE_FEMALE = 'EXAVITQu4vr4xnSDxMaL'; // Rachel — warm, conversational
+const EL_VOICE_MALE   = 'pNInz6obpgDQGcFmaJgB'; // Adam — deep, professional
+
+/**
+ * speakWithElevenLabs — High-quality TTS using ElevenLabs Multilingual v2.
+ * Supports all Indian languages via the multilingual model.
+ * Falls back to Cartesia → browser speechSynthesis.
+ */
+export async function speakWithElevenLabs(text, language = 'hi') {
+  const key = import.meta.env.VITE_ELEVENLABS_API_KEY;
+
+  if (!key) {
+    console.warn('[TTS] No ElevenLabs key, trying Cartesia fallback');
+    return speakWithCartesia(text, language);
+  }
+
+  const voiceId = language === 'en' ? EL_VOICE_MALE : EL_VOICE_FEMALE;
+
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method:  'POST',
+      headers: {
+        'xi-api-key':   key,
+        'Content-Type': 'application/json',
+        Accept:         'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability:        0.5,
+          similarity_boost:  0.8,
+          style:            0.3,
+          use_speaker_boost: true,
+        },
+      }),
+    });
+
+    if (!res.ok) throw new Error(`ElevenLabs TTS failed (${res.status})`);
+
+    const audioBuffer = await res.arrayBuffer();
+    const blob        = new Blob([audioBuffer], { type: 'audio/mpeg' });
+    const url         = URL.createObjectURL(blob);
+    const audio       = new Audio(url);
+
+    return new Promise((resolve) => {
+      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+      audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      audio.play().catch(() => {
+        URL.revokeObjectURL(url);
+        resolve();
+      });
+    });
+  } catch (err) {
+    console.warn('[TTS] ElevenLabs failed, trying Cartesia fallback:', err.message);
+    return speakWithCartesia(text, language);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TTS — CARTESIA SONIC-2 (Secondary Fallback)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const CARTESIA_LANG_MAP = {
@@ -435,15 +500,13 @@ const VOICE_HINDI   = 'a0e99841-438c-4a64-b679-ae501e7d6091'; // Vanya — warm,
 const VOICE_ENGLISH = '694f9389-aac1-45b6-b726-9d9369183238'; // Barbra — professional
 
 /**
- * speakWithCartesia — High-quality TTS using Cartesia Sonic-2.
- * Returns an HTMLAudioElement that auto-plays on call.
+ * speakWithCartesia — Secondary TTS using Cartesia Sonic-2.
  * Falls back to browser speechSynthesis if key is missing.
  */
 export async function speakWithCartesia(text, language = 'hi') {
   const key = import.meta.env.VITE_CARTESIA_API_KEY;
 
   if (!key) {
-    // Graceful degradation — browser TTS
     return speakReply(text, language);
   }
 
@@ -486,7 +549,6 @@ export async function speakWithCartesia(text, language = 'hi') {
       audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
       audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
       audio.play().catch(() => {
-        // Autoplay blocked — resolve silently
         URL.revokeObjectURL(url);
         resolve();
       });

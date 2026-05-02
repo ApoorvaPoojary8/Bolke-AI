@@ -1,11 +1,13 @@
 /**
  * BolKe API Service — matches Model_&_API.md §7 contracts exactly
  *
- * NEW STACK:
- *  STT: Deepgram Nova-3      (replaces Groq Whisper as primary)
- *  LLM: Groq Llama 3.3 70B  (remains primary)
- *  TTS: Cartesia Sonic-2     (replaces browser speechSynthesis)
- *  Transport: LiveKit        (optional real-time; falls back to MediaRecorder)
+ * STACK:
+ *  STT: Deepgram Nova-3             (replaces Groq Whisper as primary)
+ *  LLM: Groq Llama 3.3 70B         (remains primary)
+ *  TTS: ElevenLabs Multilingual v2  (primary — high-quality, dialect-accurate)
+ *       Cartesia Sonic-2            (secondary fallback)
+ *       Browser speechSynthesis     (last resort)
+ *  Transport: LiveKit               (optional real-time; falls back to MediaRecorder)
  *
  * Mode selection (automatic):
  *   VITE_API_BASE_URL set  → backend pipeline (Fastify)
@@ -17,6 +19,7 @@ import {
   getAIReply,
   transcribeWithDeepgram,
   transcribeWithGroq,
+  speakWithElevenLabs,
   speakWithCartesia,
   speakReply,
 } from './aiProviders.js';
@@ -29,8 +32,11 @@ const HAS_AI_KEYS = !!(
 );
 
 // ── Primary TTS dispatcher ────────────────────────────────────────────────────
-// Use Cartesia if key available, else browser speechSynthesis
+// Chain: ElevenLabs → Cartesia → browser speechSynthesis
 export async function speak(text, language = 'hi') {
+  if (import.meta.env.VITE_ELEVENLABS_API_KEY) {
+    return speakWithElevenLabs(text, language);
+  }
   if (import.meta.env.VITE_CARTESIA_API_KEY) {
     return speakWithCartesia(text, language);
   }
@@ -94,7 +100,7 @@ export async function sendVoiceQuery(audioBlob, deviceId, langHint = null) {
 }
 
 /**
- * Direct AI pipeline — Deepgram STT → Groq LLM → Cartesia TTS
+ * Direct AI pipeline — Deepgram STT → Groq LLM → ElevenLabs/Cartesia TTS
  */
 async function runDirectAIPipeline(audioBlob, langHint) {
   const startTime = Date.now();
@@ -123,8 +129,13 @@ async function runDirectAIPipeline(audioBlob, langHint) {
     throw err;
   }
 
-  // 3. TTS — Cartesia Sonic-2 → browser fallback (non-blocking)
+  // 3. TTS — ElevenLabs → Cartesia → browser fallback (non-blocking)
   speak(aiReply.reply, aiReply.language).catch(() => {});
+
+  // Determine which TTS provider will be used
+  let ttsMode = 'browser';
+  if (import.meta.env.VITE_ELEVENLABS_API_KEY)    ttsMode = 'elevenlabs';
+  else if (import.meta.env.VITE_CARTESIA_API_KEY) ttsMode = 'cartesia';
 
   return {
     request_id:      `direct_${Date.now()}`,
@@ -132,7 +143,7 @@ async function runDirectAIPipeline(audioBlob, langHint) {
     language:        aiReply.language,
     reply_text:      aiReply.reply,
     reply_audio_url: null,    // handled by speak() above
-    tts_mode:        import.meta.env.VITE_CARTESIA_API_KEY ? 'cartesia' : 'browser',
+    tts_mode:        ttsMode,
     intent:          aiReply.intent,
     icon:            aiReply.icon,
     action:          aiReply.action_url
@@ -145,7 +156,7 @@ async function runDirectAIPipeline(audioBlob, langHint) {
 }
 
 /**
- * sendChatMessage — Text-based chat (uses Groq LLM + Cartesia TTS)
+ * sendChatMessage — Text-based chat (uses Groq LLM + ElevenLabs/Cartesia TTS)
  */
 export async function sendChatMessage(message, language = 'hi') {
   if (!API_BASE_URL) {
@@ -237,11 +248,12 @@ export async function checkHealth() {
       status:    'direct-ai',
       stt:       import.meta.env.VITE_DEEPGRAM_API_KEY ? 'deepgram' : (import.meta.env.VITE_GROQ_API_KEY ? 'groq-whisper' : 'browser'),
       llm:       import.meta.env.VITE_GROQ_API_KEY     ? 'groq'     : 'pollinations',
-      tts:       import.meta.env.VITE_CARTESIA_API_KEY  ? 'cartesia' : 'browser',
+      tts:       import.meta.env.VITE_ELEVENLABS_API_KEY ? 'elevenlabs' : (import.meta.env.VITE_CARTESIA_API_KEY ? 'cartesia' : 'browser'),
       livekit:   import.meta.env.VITE_LIVEKIT_URL       ? 'ok'       : 'disabled',
       deepgram:  import.meta.env.VITE_DEEPGRAM_API_KEY  ? 'ok'       : 'no-key',
       groq:      import.meta.env.VITE_GROQ_API_KEY      ? 'ok'       : 'no-key',
-      cartesia:  import.meta.env.VITE_CARTESIA_API_KEY  ? 'ok'       : 'no-key',
+      elevenlabs: import.meta.env.VITE_ELEVENLABS_API_KEY ? 'ok'     : 'no-key',
+      cartesia:  import.meta.env.VITE_CARTESIA_API_KEY  ? 'ok (fallback)' : 'no-key',
       gemini:    import.meta.env.VITE_GEMINI_API_KEY    ? 'ok'       : 'no-key',
     };
   }

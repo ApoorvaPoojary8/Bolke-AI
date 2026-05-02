@@ -11,7 +11,11 @@ const EnvSchema = z.object({
   // ── Deepgram (STT — Primary) ────────────────────────────────────────────────
   DEEPGRAM_API_KEY: z.string().min(1, 'DEEPGRAM_API_KEY required'),
 
-  // ── Cartesia (TTS — Primary) ────────────────────────────────────────────────
+  // ── ElevenLabs (TTS — Primary) ──────────────────────────────────────────────
+  // Get from: https://elevenlabs.io/  (uses Multilingual v2 model)
+  ELEVENLABS_API_KEY: z.string().optional(),
+
+  // ── Cartesia (TTS — Legacy fallback) ───────────────────────────────────────
   // Optional — if not set, falls back to browser speechSynthesis
   CARTESIA_API_KEY: z.string().optional(),
 
