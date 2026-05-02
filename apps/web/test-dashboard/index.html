@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BolKe QA Testing Dashboard — 74 tests across 8 layers, from unit tests to end-to-end user journeys." />
+  <title>BolKe — QA Testing Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="../public/bolke-icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Top Navigation -->
+  <header id="dashboard-header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="currentColor"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor"/></svg>
+        </div>
+        <div>
+          <h1>BolKe QA Dashboard</h1>
+          <p class="header-subtitle">End-to-End Testing · 74 Tests · 8 Layers</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-reset" class="btn btn-outline" title="Reset all test results">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+          Reset All
+        </button>
+        <button id="btn-export" class="btn btn-primary" title="Export test results as JSON">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="dashboard-main">
+    <!-- Progress Overview Cards -->
+    <section id="progress-overview" class="section">
+      <div class="overview-grid" id="overview-cards">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Production Launch Gate -->
+    <section id="launch-gate" class="section">
+      <div class="launch-gate-card">
+        <div class="launch-gate-header">
+          <div class="launch-icon" id="launch-icon">🚀</div>
+          <div>
+            <h2>Production Launch Gate</h2>
+            <p id="launch-status-text">Checking launch readiness...</p>
+          </div>
+        </div>
+        <div class="launch-checklist" id="launch-checklist">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Testing Pyramid Visual -->
+    <section id="pyramid-section" class="section">
+      <h2 class="section-title">Testing Pyramid</h2>
+      <div class="pyramid-container" id="pyramid-visual">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Filter Bar -->
+    <section class="section filter-bar">
+      <div class="filter-group">
+        <button class="filter-btn active" data-filter="all">All (74)</button>
+        <button class="filter-btn" data-filter="pass">✅ Pass</button>
+        <button class="filter-btn" data-filter="fail">❌ Fail</button>
+        <button class="filter-btn" data-filter="warn">⚠️ Warn</button>
+        <button class="filter-btn" data-filter="untested">○ Untested</button>
+      </div>
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" id="search-input" placeholder="Search tests..." />
+      </div>
+    </section>
+
+    <!-- Test Layers -->
+    <section id="test-layers" class="section">
+      <!-- Rendered by JS -->
+    </section>
+  </main>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <footer id="dashboard-footer">
+    <p>BolKe QA Dashboard · v1.0 · May 2026 · Source: PRD · Architecture · Design · Tech Stack · Folder Structure · Model & API</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

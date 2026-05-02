@@ -1,0 +1,22 @@
+{
+  "name": "BolKe",
+  "short_name": "BolKe",
+  "description": "Voice-first AI assistant for India — Bolo, ho jayega",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8EE",
+  "theme_color": "#FF7A29",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/bolke-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/bolke-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
