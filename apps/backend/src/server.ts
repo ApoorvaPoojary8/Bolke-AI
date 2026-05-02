@@ -36,6 +36,66 @@ await app.register(import('@fastify/multipart'), {
   limits: { fileSize: 5 * 1024 * 1024 },  
 });
 
+// Global Error Handler
+app.setErrorHandler((error: any, request, reply) => {
+  app.log.error({ err: error, msg: 'Unhandled Exception Captured' });
+  
+  if (error.validation) {
+     return reply.status(400).send({ error: 'Validation Error', details: error.validation });
+  }
+
+  const statusCode = error.statusCode || 500;
+  reply.status(statusCode).send({
+    error: error.name || 'Internal Server Error',
+    message: error.message || 'An unexpected error occurred.',
+    ...(env.NODE_ENV === 'development' && { stack: error.stack })
+  });
+});
+
+// Log Request Details (Headers, Query, Body)
+app.addHook('preHandler', (request, reply, done) => {
+  // We log the detailed request payload here
+  request.log.info({
+    msg: `[REQUEST] ${request.method} ${request.url}`,
+    query: request.query,
+    body: request.body,
+    // Only log essential headers to prevent massive clutter
+    headers: {
+      'content-type': request.headers['content-type'],
+      'user-agent': request.headers['user-agent'],
+      'x-device-id': request.headers['x-device-id']
+    }
+  });
+  done();
+});
+
+// Log Response Payload Details
+app.addHook('onSend', (request, reply, payload, done) => {
+  let loggablePayload = payload;
+  
+  // Safely parse JSON payloads for logging, but label buffers/streams
+  if (typeof payload === 'string') {
+    try { 
+      loggablePayload = JSON.parse(payload); 
+    } catch (e) {
+      // It's a string, but not JSON
+    }
+  } else if (Buffer.isBuffer(payload)) {
+    loggablePayload = `[Buffer: ${payload.length} bytes]`;
+  } else if (payload && typeof (payload as any).pipe === 'function') {
+    loggablePayload = `[Stream]`;
+  }
+
+  request.log.info({
+    msg: `[RESPONSE] ${request.method} ${request.url} -> ${reply.statusCode}`,
+    statusCode: reply.statusCode,
+    responseTimeMs: reply.elapsedTime,
+    payload: loggablePayload
+  });
+  
+  done();
+});
+
 // Routes  
 await app.register(import('./routes/health.js'),  { prefix: '/v1' });  
 await app.register(import('./routes/auth.js'),    { prefix: '/v1' });  

@@ -34,4 +34,16 @@ export default async function authRoutes(app: any) {
       expires_in: 3600,  
     });  
   });  
+
+  // POST /v1/auth/anonymous — generate token for anonymous users
+  app.post('/auth/anonymous', async (req: any, reply: any) => {
+    const { device_id } = req.body;
+    if (!device_id) return reply.status(400).send({ error: 'device_id required' });
+
+    const token = await signToken(device_id);
+    return reply.send({
+      access_token: token,
+      expires_in: 3600,
+    });
+  });
 }

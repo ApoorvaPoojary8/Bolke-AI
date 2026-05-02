@@ -60,7 +60,22 @@ During testing, a few operational hiccups were identified and resolved:
 *   **`.env` Formatting Fix**: The `ELEVENLABS_API_KEY` in `apps/backend/.env` was initially placed on the same line as a comment due to an escaped `\r\n` literal. This prevented `dotenv` from parsing the key correctly. The file was rewritten to ensure the key sits on a clean, isolated line.
 *   **`EADDRINUSE` Port Collision**: During the switch from background testing to manual terminal testing, a background `node` process was left occupying port `3001`. The rogue process (PID 16424) was tracked down and forcefully terminated, freeing the port for standard `npm run dev` operations.
 
+## 5. Backend Observability & Stability
+To improve visibility and stability, we introduced essential hooks and handlers to the backend server:
+*   **Global Error Handler (`src/server.ts`)**: Implemented `app.setErrorHandler` to capture unhandled exceptions, preventing process crashes. It also intercepts validation errors to return structured `400 Bad Request` responses instead of crashing the process or exposing raw stack traces in production.
+*   **Request & Response Logging**: Attached `preHandler` and `onSend` hooks in Fastify to log all incoming requests (methods, URLs, query parameters) and outgoing responses (status codes, response times). This gives complete visibility into terminal requests/outputs for debugging the voice/chat pipeline.
+*   **TypeScript Build Fixes**: Resolved TypeScript `unknown` type errors in the error handler, ensuring that `npm run build` using `tsc` compiles successfully and cleanly without interrupting downstream tools like `esbuild` or `vite`.
+
+---
+
+## 6. Authentication Flow Updates
+We addressed an issue where the API was rejecting requests with `401 Unauthorized` due to missing `bolke_token` for guest users.
+*   **Anonymous Auth Endpoint (`/v1/auth/anonymous`)**: Added a new endpoint in `apps/backend/src/routes/auth.ts` to allow unauthenticated clients to exchange a unique `device_id` for a valid JWT.
+*   **Seamless Integration**: This allows the frontend (which historically failed API calls because it lacked a token) to seamlessly request a temporary token under the hood and continue communicating with the backend's protected endpoints without forcing an immediate OTP login.
+
 ---
 
 ## Next Steps
-With the Voice Pipeline fully architected (Deepgram STT → Groq LLM → ElevenLabs TTS), the system is ready for **End-to-End Latency Profiling** or integration with the frontend UI visualization layer.
+*   **Frontend Auth Update**: Update the web client (`apps/web/src/services/api.js`) to call `POST /v1/auth/anonymous` with the device ID if a user is not logged in via OTP.
+*   **End-to-End Latency Profiling**: Formally profile the latency of the Deepgram-Groq-ElevenLabs pipeline.
+*   **UI/UX**: Begin the integration of the frontend UI visualization layer once the backend connection is stabilized with the new anonymous authentication flow.
