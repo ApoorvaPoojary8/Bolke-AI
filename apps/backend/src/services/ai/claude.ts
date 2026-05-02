@@ -5,15 +5,6 @@ import { ClaudeReplySchema, type ClaudeReply } from '../../config/schema.js';
 
 const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
-// Safe fallback used when all models fail  
-const SAFE_FALLBACK: ClaudeReply = {  
-  reply: 'Maaf kijiye, abhi samajh nahi aaya. Dobara bolen.',  
-  intent: 'unknown',  
-  icon: 'unknown',  
-  language: 'hi',  
-  action_url: null,  
-  confidence: 0,  
-};
 
 function parseClaudeResponse(raw: string): ClaudeReply | null {  
   try {  
@@ -65,8 +56,7 @@ export async function callClaude(
       return callClaude(transcript, attempt + 1);  
     }
 
-    console.error('All Claude attempts returned invalid JSON');  
-    return SAFE_FALLBACK;
+    throw new Error('All Claude attempts returned invalid JSON');
 
   } catch (err: any) {  
     // Rate limit or 5xx — try escalation once  
@@ -74,8 +64,7 @@ export async function callClaude(
       console.warn(`Claude attempt ${attempt} errored (${err.status}), retrying...`);  
       return callClaude(transcript, attempt + 1);  
     }  
-    console.error('Claude failed after all retries:', err.message);  
-    return SAFE_FALLBACK;  
+    throw new Error(`Claude failed after all retries: ${err.message}`);  
   }  
 }
 

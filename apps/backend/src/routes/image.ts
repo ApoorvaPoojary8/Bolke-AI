@@ -67,10 +67,13 @@ export default async function imageRoutes(app: any) {
       parsed = { ...parsed, confidence: 0.5 };  
     }
 
-    // TTS the overview sentence  
-    const overviewAudio = await synthesise(parsed.overview, targetLanguage);  
-    const audioFilename = `image-audio/${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;  
-    const overviewAudioUrl = await uploadAudio(overviewAudio, audioFilename, 'image-audio');
+    // TTS the overview sentence
+    const overviewAudio = await synthesise(parsed.overview, targetLanguage);
+    let overviewAudioUrl: string | null = null;
+    if (overviewAudio) {
+      const audioFilename = `image-audio/${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;
+      overviewAudioUrl = await uploadAudio(overviewAudio, audioFilename, 'image-audio');
+    }
 
     return reply.send({  
       document_type:      parsed.document_type ?? 'other',  

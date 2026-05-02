@@ -1,5 +1,5 @@
 export default async function healthRoutes(app: any) {  
-  app.get('/v1/health', async (_req: any, reply: any) => {  
+  app.get('/health', async (_req: any, reply: any) => {  
     // Quick Claude ping  
     let claudeStatus = 'ok';  
     try {  

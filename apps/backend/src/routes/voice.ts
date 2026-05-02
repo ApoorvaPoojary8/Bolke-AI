@@ -49,12 +49,16 @@ export default async function voiceRoutes(app: any) {
     // 3. AI intent parsing (receives clean text now)  
     const aiReply = await routeToAI(transcript);
 
-    // 4. TTS  
+    // 4. TTS — returns null when using browser speechSynthesis (free mode)
     const audioOut = await synthesise(aiReply.reply, aiReply.language);
 
-    // 5. Upload  
-    const filename = `tts/${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;  
-    const replyAudioUrl = await uploadAudio(audioOut, filename);
+    // 5. Upload only if server generated audio (Google TTS path)
+    //    If null, frontend will use window.speechSynthesis (free, built-in)
+    let replyAudioUrl: string | null = null;
+    if (audioOut !== null) {
+      const filename = `tts/${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;
+      replyAudioUrl = await uploadAudio(audioOut, filename);
+    }
 
     // 6. Log (include raw + normalized for debugging)  
     const latencyMs = Date.now() - startTime;  
@@ -76,8 +80,10 @@ export default async function voiceRoutes(app: any) {
       transcript:      rawTranscript,     // original (for debugging)  
       normalized:      transcript,        // cleaned version (for debugging)  
       language:        aiReply.language,  
-      reply_text:      aiReply.reply,  
-      reply_audio_url: replyAudioUrl,  
+      reply_text:      aiReply.reply,
+      // null when using browser speechSynthesis (frontend checks and uses speakText())
+      reply_audio_url: replyAudioUrl,
+      tts_mode:        replyAudioUrl ? 'server' : 'browser', // hint for client
       intent:          aiReply.intent,  
       icon:            aiReply.icon,  
       action,  

@@ -32,8 +32,10 @@ export default async function chatRoutes(app: any) {
     let replyAudioUrl: string | null = null;
     try {
       const audioOut = await synthesise(aiReply.reply, aiReply.language);
-      const filename = `tts/${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;
-      replyAudioUrl = await uploadAudio(audioOut, filename);
+      if (audioOut) {
+        const filename = `tts/${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`;
+        replyAudioUrl = await uploadAudio(audioOut, filename);
+      }
     } catch (err) {
       console.warn('TTS failed for chat reply, continuing without audio:', err);
     }
