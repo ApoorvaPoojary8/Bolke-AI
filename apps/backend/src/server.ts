@@ -43,6 +43,7 @@ await app.register(import('./routes/voice.js'),   { prefix: '/v1' });
 await app.register(import('./routes/image.js'),   { prefix: '/v1' });
 await app.register(import('./routes/action.js'),  { prefix: '/v1' });
 await app.register(import('./routes/chat.js'),    { prefix: '/v1' });
+await app.register(import('./routes/tts.js'),     { prefix: '/v1' });
 await app.register(import('./routes/livekit.js'), { prefix: '/v1' });
 
 // Start  

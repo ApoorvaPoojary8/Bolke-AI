@@ -1,6 +1,6 @@
 import { routeToAI }        from '../services/ai/router.js';
 import { normalizeDialect } from '../services/ai/normalizer.js';
-import { synthesise }       from '../services/tts/googleTts.js';
+import { synthesise }       from '../services/tts/elevenLabsTts.js';
 import { uploadAudio }      from '../utils/storage.js';
 import { requireAuth }      from '../middleware/auth.js';
 import crypto from 'crypto';

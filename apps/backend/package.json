@@ -15,6 +15,7 @@
     "@fastify/rate-limit": "^10.1.1",
     "@supabase/supabase-js": "^2.45.6",
     "dotenv": "^16.4.5",
+    "elevenlabs": "^1.59.0",
     "fastify": "^5.0.0",
     "form-data": "^4.0.5",
     "groq-sdk": "^0.7.0",
