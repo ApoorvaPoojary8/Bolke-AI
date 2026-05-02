@@ -5,8 +5,8 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// Register service worker for PWA — PRD FR-6.1
-if ('serviceWorker' in navigator) {
+// Register service worker for PWA — production only (SW in dev causes stale JS cache)
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')

@@ -102,9 +102,11 @@ export default function App() {
       setScreen(STATES.THINKING);
 
       // Send to backend — architecture.md §4 steps 2-10
+      const langHint = localStorage.getItem('bolke_last_language') ?? 'hi';
       const result = await sendVoiceQuery(
         audioBlob,
-        deviceIdRef.current
+        deviceIdRef.current,
+        langHint,
       );
 
       // Cache the result for offline — PRD FR-6.2
