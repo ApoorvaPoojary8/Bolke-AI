@@ -4,8 +4,6 @@
  * Premium mic icon with studio-quality design
  */
 
-import React from 'react';
-
 // Premium studio-style microphone SVG icon
 const MicIcon = ({ size = 80 }) => (
   <svg

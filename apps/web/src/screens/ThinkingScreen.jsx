@@ -3,7 +3,7 @@
  * Shows spinner/loading animation while AI processes
  */
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 
 export function ThinkingScreen({ onSpeakThinking }) {
   // Play thinking voice cue on first mount — design.md §5.3
@@ -11,7 +11,7 @@ export function ThinkingScreen({ onSpeakThinking }) {
     if (onSpeakThinking) {
       onSpeakThinking();
     }
-  }, []);
+  }, [onSpeakThinking]);
 
   return (
     <div className="screen screen-enter" id="screen-thinking">

@@ -3,10 +3,10 @@
  * Shows success after action is triggered
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActionButton } from '../components/ActionButton';
 
-export function ActionScreen({ action, onDone }) {
+export function ActionScreen({ onDone }) {
   const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {

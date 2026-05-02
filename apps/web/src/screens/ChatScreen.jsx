@@ -8,9 +8,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { cn } from '../utils/cn';
 import {
   ImageIcon,
-  FileUp,
   MonitorIcon,
-  ArrowUpIcon,
   Paperclip,
   SendIcon,
   XIcon,
@@ -94,7 +92,6 @@ export function ChatScreen({ onBack, onOpenImage, playAudio, speakText }) {
   const [isTyping, setIsTyping] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [recentCommand, setRecentCommand] = useState(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [inputFocused, setInputFocused] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -249,8 +246,6 @@ export function ChatScreen({ onBack, onOpenImage, playAudio, speakText }) {
     const query = queryMap[selected.prefix] || selected.description;
     setValue(query);
     setShowCommandPalette(false);
-    setRecentCommand(selected.label);
-    setTimeout(() => setRecentCommand(null), 2000);
   };
 
   return (

@@ -37,12 +37,13 @@ await app.register(import('@fastify/multipart'), {
 });
 
 // Routes  
-await app.register(import('./routes/health.js'), { prefix: '/v1' });  
-await app.register(import('./routes/auth.js'),  { prefix: '/v1' });  
-await app.register(import('./routes/voice.js'), { prefix: '/v1' });  
-await app.register(import('./routes/image.js'), { prefix: '/v1' });
-await app.register(import('./routes/action.js'), { prefix: '/v1' });
-await app.register(import('./routes/chat.js'), { prefix: '/v1' });
+await app.register(import('./routes/health.js'),  { prefix: '/v1' });  
+await app.register(import('./routes/auth.js'),    { prefix: '/v1' });  
+await app.register(import('./routes/voice.js'),   { prefix: '/v1' });  
+await app.register(import('./routes/image.js'),   { prefix: '/v1' });
+await app.register(import('./routes/action.js'),  { prefix: '/v1' });
+await app.register(import('./routes/chat.js'),    { prefix: '/v1' });
+await app.register(import('./routes/livekit.js'), { prefix: '/v1' });
 
 // Start  
 const address = await app.listen({  

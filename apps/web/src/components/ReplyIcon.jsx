@@ -4,7 +4,6 @@
  * Uses CSS-animated SVG icons (Lottie can be added later for custom animations)
  */
 
-import React from 'react';
 import { ICON_MAP } from '../utils/constants';
 
 // SVG Icons — rounded, filled, high-contrast — design.md §2.3

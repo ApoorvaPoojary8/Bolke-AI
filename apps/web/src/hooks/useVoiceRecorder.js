@@ -20,7 +20,7 @@ export function useVoiceRecorder() {
   const timerRef = useRef(null);
 
   // Monitor audio levels for visual feedback
-  const monitorLevels = useCallback(() => {
+  const monitorLevels = useCallback(function monitorLevels() {
     if (!analyserRef.current) return;
 
     const dataArray = new Uint8Array(analyserRef.current.fftSize);
@@ -38,6 +38,48 @@ export function useVoiceRecorder() {
     if (mediaRecorderRef.current?.state === 'recording') {
       animFrameRef.current = requestAnimationFrame(monitorLevels);
     }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    return new Promise((resolve) => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === 'inactive') {
+        setIsRecording(false);
+        setAudioLevel(0);
+        resolve(null);
+        return;
+      }
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, {
+          type: recorder.mimeType,
+        });
+
+        // Clean up stream
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+
+        setIsRecording(false);
+        setAudioLevel(0);
+        chunksRef.current = [];
+
+        resolve(blob);
+      };
+
+      recorder.stop();
+    });
   }, []);
 
   const startRecording = useCallback(async () => {
@@ -100,49 +142,7 @@ export function useVoiceRecorder() {
       setError('mic_denied');
       throw err;
     }
-  }, [monitorLevels]);
-
-  const stopRecording = useCallback(() => {
-    return new Promise((resolve) => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-
-      const recorder = mediaRecorderRef.current;
-      if (!recorder || recorder.state === 'inactive') {
-        setIsRecording(false);
-        setAudioLevel(0);
-        resolve(null);
-        return;
-      }
-
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType,
-        });
-
-        // Clean up stream
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
-        }
-
-        setIsRecording(false);
-        setAudioLevel(0);
-        chunksRef.current = [];
-
-        resolve(blob);
-      };
-
-      recorder.stop();
-    });
-  }, []);
+  }, [monitorLevels, stopRecording]);
 
   const cancelRecording = useCallback(() => {
     if (timerRef.current) {

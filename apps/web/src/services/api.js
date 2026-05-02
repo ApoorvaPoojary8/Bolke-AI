@@ -1,66 +1,92 @@
 /**
  * BolKe API Service — matches Model_&_API.md §7 contracts exactly
  *
+ * NEW STACK:
+ *  STT: Deepgram Nova-3      (replaces Groq Whisper as primary)
+ *  LLM: Groq Llama 3.3 70B  (remains primary)
+ *  TTS: Cartesia Sonic-2     (replaces browser speechSynthesis)
+ *  Transport: LiveKit        (optional real-time; falls back to MediaRecorder)
+ *
  * Mode selection (automatic):
- *   - VITE_API_BASE_URL is set  → uses backend (full pipeline)
- *   - VITE_API_BASE_URL is empty → uses direct AI providers (Gemini/Groq/NVIDIA/Pollinations)
- *     This is the current mode. No backend required.
+ *   VITE_API_BASE_URL set  → backend pipeline (Fastify)
+ *   VITE_API_BASE_URL empty → Direct AI pipeline (browser → APIs)
  */
 
 import { API_BASE_URL, DEMO_MODE, DEMO_RESPONSES } from '../utils/constants.js';
 import {
   getAIReply,
+  transcribeWithDeepgram,
   transcribeWithGroq,
+  speakWithCartesia,
   speakReply,
 } from './aiProviders.js';
 
-// True when VITE_GEMINI_API_KEY or VITE_GROQ_API_KEY exists
+// True when at least one AI key is available
 const HAS_AI_KEYS = !!(
-  import.meta.env.VITE_GEMINI_API_KEY ||
   import.meta.env.VITE_GROQ_API_KEY ||
-  import.meta.env.VITE_NVIDIA_API_KEY
+  import.meta.env.VITE_DEEPGRAM_API_KEY ||
+  import.meta.env.VITE_GEMINI_API_KEY
 );
 
+// ── Primary TTS dispatcher ────────────────────────────────────────────────────
+// Use Cartesia if key available, else browser speechSynthesis
+export async function speak(text, language = 'hi') {
+  if (import.meta.env.VITE_CARTESIA_API_KEY) {
+    return speakWithCartesia(text, language);
+  }
+  return speakReply(text, language);
+}
+
+// ── Primary STT dispatcher ────────────────────────────────────────────────────
+// Use Deepgram if key available, else Groq Whisper
+async function transcribe(audioBlob, langHint) {
+  if (import.meta.env.VITE_DEEPGRAM_API_KEY) {
+    try {
+      return await transcribeWithDeepgram(audioBlob, langHint);
+    } catch (err) {
+      console.warn('[STT] Deepgram failed, falling back to Groq Whisper:', err.message);
+    }
+  }
+  // Groq Whisper fallback
+  return transcribeWithGroq(audioBlob, langHint);
+}
+
 /**
- * Send voice audio for processing.
- * - Backend mode: POST /v1/voice (multipart)
- * - Direct AI mode: Groq Whisper STT → AI cascade → browser TTS
+ * sendVoiceQuery — Send voice audio for processing.
  *
  * @param {Blob} audioBlob - WebM/Opus audio blob from MediaRecorder
  * @param {string} deviceId - Anonymous device UUID
  * @param {string|null} langHint - Optional language hint
- * @returns {Promise<Object>} Voice response matching API contract
  */
 export async function sendVoiceQuery(audioBlob, deviceId, langHint = null) {
-  // Demo mode — simulate backend response
   if (DEMO_MODE && !HAS_AI_KEYS) {
     return simulateDemoResponse();
   }
 
-  // Direct AI mode — no backend needed
+  // Direct AI mode (no backend)
   if (!API_BASE_URL) {
     return runDirectAIPipeline(audioBlob, langHint);
   }
 
-  // Backend mode — forward to Fastify gateway
+  // Backend mode — forward to Fastify
   const formData = new FormData();
   formData.append('audio', audioBlob, 'recording.webm');
   formData.append('device_id', deviceId);
   if (langHint) formData.append('client_lang_hint', langHint);
 
-  const token = localStorage.getItem('bolke_token');
+  const token    = localStorage.getItem('bolke_token');
   const response = await fetch(`${API_BASE_URL}/v1/voice`, {
-    method: 'POST',
+    method:  'POST',
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: formData,
+    body:    formData,
   });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new VoiceApiError(
-      error.error_code || 'NETWORK_ERROR',
-      error.user_message || 'Maaf kijiye, dobara bolen.',
-      error.user_message_audio_url || null
+      error.error_code    || 'NETWORK_ERROR',
+      error.user_message  || 'Maaf kijiye, dobara bolen.',
+      error.user_message_audio_url || null,
     );
   }
 
@@ -68,18 +94,17 @@ export async function sendVoiceQuery(audioBlob, deviceId, langHint = null) {
 }
 
 /**
- * Direct AI pipeline — runs entirely in the browser.
- * STT (Groq Whisper) → Intent AI (Gemini/Groq/NVIDIA) → TTS (browser)
+ * Direct AI pipeline — Deepgram STT → Groq LLM → Cartesia TTS
  */
 async function runDirectAIPipeline(audioBlob, langHint) {
   const startTime = Date.now();
 
-  // 1. STT — Groq Whisper (with WAV fallback built into transcribeWithGroq)
+  // 1. STT — Deepgram Nova-3 → Groq Whisper fallback
   let transcript, language;
   try {
-    ({ transcript, language } = await transcribeWithGroq(audioBlob, langHint));
+    ({ transcript, language } = await transcribe(audioBlob, langHint));
   } catch (sttErr) {
-    console.error('[STT] Groq Whisper failed:', sttErr.message);
+    console.error('[STT] All STT providers failed:', sttErr.message);
     throw new VoiceApiError('STT_FAILED', 'Saaf nahi suna, dobara bolen.', null);
   }
 
@@ -87,7 +112,7 @@ async function runDirectAIPipeline(audioBlob, langHint) {
     throw new VoiceApiError('STT_EMPTY', 'Kuch nahi suna. Dobara bolen.', null);
   }
 
-  // 2. AI intent parsing — cascade through all providers
+  // 2. AI intent parsing — Groq 70B primary cascade
   let aiReply;
   try {
     aiReply = await getAIReply(transcript, language);
@@ -98,17 +123,16 @@ async function runDirectAIPipeline(audioBlob, langHint) {
     throw err;
   }
 
-  // 3. TTS — play reply using browser speechSynthesis
-  //    (non-blocking: we return the response immediately, audio plays alongside)
-  speakReply(aiReply.reply, aiReply.language).catch(() => {});
+  // 3. TTS — Cartesia Sonic-2 → browser fallback (non-blocking)
+  speak(aiReply.reply, aiReply.language).catch(() => {});
 
   return {
     request_id:      `direct_${Date.now()}`,
     transcript,
     language:        aiReply.language,
     reply_text:      aiReply.reply,
-    reply_audio_url: null,          // handled by speakReply() above
-    tts_mode:        'browser',
+    reply_audio_url: null,    // handled by speak() above
+    tts_mode:        import.meta.env.VITE_CARTESIA_API_KEY ? 'cartesia' : 'browser',
     intent:          aiReply.intent,
     icon:            aiReply.icon,
     action:          aiReply.action_url
@@ -121,14 +145,13 @@ async function runDirectAIPipeline(audioBlob, langHint) {
 }
 
 /**
- * Send a text-based chat message.
- * Direct mode: calls AI cascade directly.
+ * sendChatMessage — Text-based chat (uses Groq LLM + Cartesia TTS)
  */
 export async function sendChatMessage(message, language = 'hi') {
   if (!API_BASE_URL) {
     const startTime = Date.now();
-    const aiReply = await getAIReply(message);
-    speakReply(aiReply.reply, aiReply.language).catch(() => {});
+    const aiReply   = await getAIReply(message);
+    speak(aiReply.reply, aiReply.language).catch(() => {});
     return {
       request_id:      `chat_${Date.now()}`,
       transcript:      message,
@@ -142,11 +165,11 @@ export async function sendChatMessage(message, language = 'hi') {
     };
   }
 
-  const token = localStorage.getItem('bolke_token');
+  const token    = localStorage.getItem('bolke_token');
   const response = await fetch(`${API_BASE_URL}/v1/chat`, {
-    method: 'POST',
+    method:  'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type':  'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ message, language }),
@@ -155,9 +178,9 @@ export async function sendChatMessage(message, language = 'hi') {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new VoiceApiError(
-      error.error_code || 'CHAT_ERROR',
+      error.error_code  || 'CHAT_ERROR',
       error.user_message || 'Message bhejne mein dikkat aayi.',
-      null
+      null,
     );
   }
 
@@ -165,18 +188,37 @@ export async function sendChatMessage(message, language = 'hi') {
 }
 
 /**
- * Trigger an action via n8n — Model_&_API.md §7.4
+ * getLiveKitToken — Get a LiveKit room access token from the backend.
+ * Used when VITE_LIVEKIT_URL is set for real-time audio streaming.
+ */
+export async function getLiveKitToken(room = null) {
+  const token = localStorage.getItem('bolke_token');
+  const response = await fetch(`${API_BASE_URL}/v1/livekit/token`, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ ...(room ? { room } : {}) }),
+  });
+
+  if (!response.ok) throw new Error('LiveKit token request failed');
+  return response.json(); // { token, url, room }
+}
+
+/**
+ * triggerAction — Trigger an n8n workflow action
  */
 export async function triggerAction(intent, params = {}) {
   if (!API_BASE_URL) {
     return { queued: true, estimated_seconds: 0, sms_will_arrive: false };
   }
 
-  const token = localStorage.getItem('bolke_token');
+  const token    = localStorage.getItem('bolke_token');
   const response = await fetch(`${API_BASE_URL}/v1/action/${intent}`, {
-    method: 'POST',
+    method:  'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type':  'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(params),
@@ -187,17 +229,20 @@ export async function triggerAction(intent, params = {}) {
 }
 
 /**
- * Check backend health — Model_&_API.md §7.5
+ * checkHealth — Check backend health and provider status
  */
 export async function checkHealth() {
   if (!API_BASE_URL) {
     return {
-      status: 'direct-ai',
-      gemini: import.meta.env.VITE_GEMINI_API_KEY ? 'ok' : 'no-key',
-      groq:   import.meta.env.VITE_GROQ_API_KEY   ? 'ok' : 'no-key',
-      nvidia: import.meta.env.VITE_NVIDIA_API_KEY  ? 'ok' : 'no-key',
-      tts:    'browser',
-      stt:    'groq-whisper',
+      status:    'direct-ai',
+      stt:       import.meta.env.VITE_DEEPGRAM_API_KEY ? 'deepgram' : (import.meta.env.VITE_GROQ_API_KEY ? 'groq-whisper' : 'browser'),
+      llm:       import.meta.env.VITE_GROQ_API_KEY     ? 'groq'     : 'pollinations',
+      tts:       import.meta.env.VITE_CARTESIA_API_KEY  ? 'cartesia' : 'browser',
+      livekit:   import.meta.env.VITE_LIVEKIT_URL       ? 'ok'       : 'disabled',
+      deepgram:  import.meta.env.VITE_DEEPGRAM_API_KEY  ? 'ok'       : 'no-key',
+      groq:      import.meta.env.VITE_GROQ_API_KEY      ? 'ok'       : 'no-key',
+      cartesia:  import.meta.env.VITE_CARTESIA_API_KEY  ? 'ok'       : 'no-key',
+      gemini:    import.meta.env.VITE_GEMINI_API_KEY    ? 'ok'       : 'no-key',
     };
   }
 
@@ -206,12 +251,12 @@ export async function checkHealth() {
 }
 
 /**
- * Simulate a backend response for demo mode (no keys at all)
+ * Simulate a demo response (no keys at all)
  */
 function simulateDemoResponse() {
   return new Promise((resolve) => {
     const responses = Object.values(DEMO_RESPONSES);
-    const response = responses[Math.floor(Math.random() * responses.length)];
+    const response  = responses[Math.floor(Math.random() * responses.length)];
     setTimeout(() => resolve({ ...response }), 1500 + Math.random() * 1000);
   });
 }
@@ -222,15 +267,15 @@ function simulateDemoResponse() {
 class VoiceApiError extends Error {
   constructor(code, userMessage, audioUrl) {
     super(userMessage);
-    this.name = 'VoiceApiError';
-    this.code = code;
+    this.name        = 'VoiceApiError';
+    this.code        = code;
     this.userMessage = userMessage;
-    this.audioUrl = audioUrl;
+    this.audioUrl    = audioUrl;
   }
 }
 
 /**
- * Generate or retrieve anonymous device ID
+ * getDeviceId — Anonymous device UUID (persisted in localStorage)
  */
 export function getDeviceId() {
   let deviceId = localStorage.getItem('bolke_device_id');

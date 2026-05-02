@@ -3,7 +3,7 @@
  * Replaces the backend /v1/image endpoint with direct NVIDIA API call.
  * NVIDIA model: meta/llama-3.2-11b-vision-instruct (free API credits)
  */
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
 
 const LANG_NAMES = {
@@ -136,7 +136,7 @@ export function ImageScreen({ onResult, onBack, speakText }) {
       if (speakText && result.reply_text) {
         speakText(result.reply_text, LANG_BCP47[lang] ?? 'hi-IN');
       }
-    } catch (err) {
+    } catch {
       setLoading(false);
       const msg = 'Document nahi padh saka. Dobara try karein.';
       setError(msg);

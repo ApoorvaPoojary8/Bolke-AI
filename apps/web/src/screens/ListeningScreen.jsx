@@ -3,7 +3,6 @@
  * Background dims, waveform appears below mic
  */
 
-import React from 'react';
 import { MicButton } from '../components/MicButton';
 import { PulseRing } from '../components/PulseRing';
 import { WaveformVisual } from '../components/WaveformVisual';

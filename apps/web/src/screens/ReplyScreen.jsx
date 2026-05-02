@@ -4,7 +4,6 @@
  * Mic button (smaller, 120dp) at bottom for follow-up queries
  */
 
-import React from 'react';
 import { ReplyIcon } from '../components/ReplyIcon';
 import { ActionButton } from '../components/ActionButton';
 import { MicButtonSmall } from '../components/MicButton';

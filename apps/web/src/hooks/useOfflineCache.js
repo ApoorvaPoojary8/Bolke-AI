@@ -10,6 +10,11 @@ export function useOfflineCache() {
   const [recentQueries, setRecentQueries] = useState([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  const loadRecent = useCallback(async () => {
+    const queries = await getRecentQueries(2); // Show last 2 as icons — design.md §4.1
+    setRecentQueries(queries);
+  }, []);
+
   // Monitor network status
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -21,19 +26,15 @@ export function useOfflineCache() {
     // Purge expired entries on mount
     purgeExpired();
 
-    // Load recent queries
-    loadRecent();
+    // Load recent queries after mount
+    const loadTimer = window.setTimeout(loadRecent, 0);
 
     return () => {
+      window.clearTimeout(loadTimer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
-
-  const loadRecent = useCallback(async () => {
-    const queries = await getRecentQueries(2); // Show last 2 as icons — design.md §4.1
-    setRecentQueries(queries);
-  }, []);
+  }, [loadRecent]);
 
   const saveQuery = useCallback(async (queryResult) => {
     await cacheQuery(queryResult);

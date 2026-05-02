@@ -4,7 +4,7 @@
  * Soft "boop" sound, never harsh — design.md §5.2
  */
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { MicButtonSmall } from '../components/MicButton';
 
@@ -14,7 +14,7 @@ export function FailureScreen({ errorMessage, onRetry, onHome, onSpeakError }) {
     if (onSpeakError) {
       onSpeakError();
     }
-  }, []);
+  }, [onSpeakError]);
 
   return (
     <div className="screen screen-enter" id="screen-failure">

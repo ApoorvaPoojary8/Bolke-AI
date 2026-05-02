@@ -1,44 +1,53 @@
-import Anthropic from '@anthropic-ai/sdk';  
-import { env }                      from '../../config/env.js';  
+/**
+ * normalizer.ts — Dialect Normalizer
+ *
+ * Converts Hinglish/slang/informal input → clean standard text
+ * before sending to the intent parser.
+ *
+ * MIGRATED: Claude → Groq Llama 3.1 8B (fast, cheap, no Anthropic key needed)
+ */
+
+import Groq from 'groq-sdk';
+import { env } from '../../config/env.js';
 import { DIALECT_NORMALIZER_PROMPT } from '../../config/prompts.js';
 
-const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+let groqClient: Groq | null = null;
 
-// Cache the system prompt — same prompt every call so it caches after first use  
-// Cost: ~0.000001 USD per call with prompt caching (effectively free)  
-export async function normalizeDialect(rawTranscript: string): Promise<string> {  
-  // Very short input — nothing to normalize, skip the extra call  
+function getGroq(): Groq {
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey: env.GROQ_API_KEY });
+  }
+  return groqClient;
+}
+
+export async function normalizeDialect(rawTranscript: string): Promise<string> {
+  // Very short input — nothing to normalize
   if (rawTranscript.trim().split(' ').length <= 3) return rawTranscript;
 
-  try {  
-    const response = await anthropic.messages.create({  
-      model: env.CLAUDE_PRIMARY_MODEL,   // claude-haiku-4-5-20251001  
-      max_tokens: 150,                   // normalizer output is always short  
-      system: [  
-        {  
-          type: 'text',  
-          text: DIALECT_NORMALIZER_PROMPT,  
-          cache_control: { type: 'ephemeral' }, // cache this — called every query  
-        } as any,  
-      ],  
-      messages: [{ role: 'user', content: rawTranscript }],  
+  try {
+    const completion = await getGroq().chat.completions.create({
+      model:       'llama-3.1-8b-instant',  // fast + cheap for normalization
+      messages: [
+        { role: 'system', content: DIALECT_NORMALIZER_PROMPT },
+        { role: 'user',   content: rawTranscript },
+      ],
+      max_tokens:  150,
+      temperature: 0.1,
     });
 
-    const normalized = response.content[0]?.type === 'text'  
-      ? response.content[0].text.trim()  
-      : rawTranscript;
+    const normalized = completion.choices[0]?.message?.content?.trim() ?? rawTranscript;
 
-    // Safety check: if output is empty or much shorter than input, use original  
-    if (!normalized || normalized.length < rawTranscript.length * 0.3) {  
-      return rawTranscript;  
+    // Safety: if output is empty or much shorter than input, use original
+    if (!normalized || normalized.length < rawTranscript.length * 0.3) {
+      return rawTranscript;
     }
 
-    console.log(`Dialect normalize: "${rawTranscript}" → "${normalized}"`);  
+    console.log(`Dialect normalize: "${rawTranscript}" → "${normalized}"`);
     return normalized;
 
-  } catch (err) {  
-    // Normalizer failure is non-fatal — fall through to intent parser with raw text  
-    console.warn('Dialect normalizer failed, using raw transcript:', err);  
-    return rawTranscript;  
-  }  
+  } catch (err) {
+    // Non-fatal — fall through to intent parser with raw text
+    console.warn('[Normalizer] Groq failed, using raw transcript:', err);
+    return rawTranscript;
+  }
 }

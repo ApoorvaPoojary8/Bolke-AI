@@ -3,7 +3,7 @@
  * design.md §4.2 — subtle waveform below mic
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 const BAR_COUNT = 20;
 
@@ -16,8 +16,9 @@ export function WaveformVisual({ audioLevel, active }) {
       const baseHeight = active
         ? (1 - distFromCenter * 0.6) * audioLevel * 50 + 6
         : 6;
-      // Add subtle randomness
-      const jitter = active ? Math.random() * 8 * audioLevel : 0;
+      const jitter = active
+        ? ((Math.sin(i * 12.9898 + audioLevel * 78.233) + 1) / 2) * 8 * audioLevel
+        : 0;
       return Math.max(6, baseHeight + jitter);
     });
   }, [audioLevel, active]);

@@ -3,8 +3,6 @@
  * Single "Do it" button with icon — FR-5.1
  */
 
-import React from 'react';
-
 export function ActionButton({ label, icon, onClick, variant = 'primary', disabled }) {
   const className = [
     'action-button',

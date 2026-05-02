@@ -150,3 +150,5 @@ function layerAllPass(results, layerId) {
   if (!layer) return false;
   return layer.tests.every(t => results[t.id] === 'pass');
 }
+
+window.BOLKE_QA_DATA = { LAYERS, LAUNCH_GATES };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';  
+import { useState, useEffect } from 'react';  
 import { ActionButton } from '../components/ActionButton';
 
 const DOC_TYPE_LABELS = {  
@@ -19,7 +19,7 @@ export function ImageReplyScreen({ result, onHome, onSpeakAgain, playAudio }) {
     if (result?.overview_audio_url) {  
       playAudio(result.overview_audio_url);  
     }  
-  }, []);
+  }, [playAudio, result?.overview_audio_url]);
 
   if (!result) return null;
 

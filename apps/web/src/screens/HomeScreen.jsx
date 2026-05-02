@@ -4,14 +4,14 @@
  * Recent queries as icons (optional) — design.md §4.1
  */
 
-import React, { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { MicButton } from '../components/MicButton';
 import { PulseRing } from '../components/PulseRing';
 import { ICON_MAP } from '../utils/constants';
 import { LanguageSelector } from '../components/LanguageSelector';
 
 export function HomeScreen({ onStartRecording, onOpenImage, onOpenChat, recentQueries, isOnline }) {
-  const [showHint, setShowHint] = useState(true);
+  const [showHint] = useState(() => !localStorage.getItem('bolke_used'));
   const [selectedLang, setSelectedLang] = useState(
     localStorage.getItem('bolke_last_language') ?? 'hi'
   );
@@ -20,12 +20,6 @@ export function HomeScreen({ onStartRecording, onOpenImage, onOpenChat, recentQu
     setSelectedLang(code);
     localStorage.setItem('bolke_last_language', code);
   };
-
-  // Hide hint after first successful query — design.md §4.1
-  useEffect(() => {
-    const hasUsedBefore = localStorage.getItem('bolke_used');
-    if (hasUsedBefore) setShowHint(false);
-  }, []);
 
   return (
     <div className="screen screen-enter" id="screen-home">
