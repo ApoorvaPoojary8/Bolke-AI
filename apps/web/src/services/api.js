@@ -15,7 +15,7 @@
  */
 
 import { API_BASE_URL, DEMO_MODE, DEMO_RESPONSES } from '../utils/constants.js';
-import { API_KEYS } from '../utils/apiKeys.js';
+import { AI_CONFIG } from '../config/aiConfig.js';
 import {
   getAIReply,
   transcribeWithDeepgram,
@@ -30,19 +30,19 @@ export { cancelActiveTTS };
 
 // True when at least one AI key is available
 const HAS_AI_KEYS = !!(
-  API_KEYS.groq ||
-  API_KEYS.deepgram ||
-  API_KEYS.gemini
+  AI_CONFIG.groq.hasKey ||
+  AI_CONFIG.deepgram.hasKey ||
+  AI_CONFIG.gemini.hasKey
 );
 
 // ── Primary TTS dispatcher ────────────────────────────────────────────────────
 // Chain: ElevenLabs → Cartesia → browser speechSynthesis
 export async function speak(text, language = 'hi') {
   cancelActiveTTS();
-  if (API_KEYS.elevenlabs) {
+  if (AI_CONFIG.elevenlabs.hasKey) {
     return speakWithElevenLabs(text, language);
   }
-  if (API_KEYS.cartesia) {
+  if (AI_CONFIG.cartesia.hasKey) {
     return speakWithCartesia(text, language);
   }
   return speakReply(text, language);
@@ -51,7 +51,7 @@ export async function speak(text, language = 'hi') {
 // ── Primary STT dispatcher ────────────────────────────────────────────────────
 // Use Deepgram if key available, else Groq Whisper
 async function transcribe(audioBlob, langHint) {
-  if (API_KEYS.deepgram) {
+  if (AI_CONFIG.deepgram.hasKey) {
     try {
       const result = await transcribeWithDeepgram(audioBlob, langHint);
       if (result.transcript) return result;
@@ -140,8 +140,8 @@ async function runDirectAIPipeline(audioBlob, langHint) {
 
   // Determine which TTS provider will be used
   let ttsMode = 'browser';
-  if (API_KEYS.elevenlabs)    ttsMode = 'elevenlabs';
-  else if (API_KEYS.cartesia) ttsMode = 'cartesia';
+  if (AI_CONFIG.elevenlabs.hasKey)    ttsMode = 'elevenlabs';
+  else if (AI_CONFIG.cartesia.hasKey) ttsMode = 'cartesia';
 
   return {
     request_id:      `direct_${Date.now()}`,
@@ -251,15 +251,15 @@ export async function checkHealth() {
   if (!API_BASE_URL) {
     return {
       status:    'direct-ai',
-      stt:       API_KEYS.deepgram ? 'deepgram' : (API_KEYS.groq ? 'groq-whisper' : 'browser'),
-      llm:       API_KEYS.groq     ? 'groq'     : 'pollinations',
-      tts:       API_KEYS.elevenlabs ? 'elevenlabs' : (API_KEYS.cartesia ? 'cartesia' : 'browser'),
-      livekit:   API_KEYS.livekit   ? 'ok'       : 'disabled',
-      deepgram:  API_KEYS.deepgram  ? 'ok'       : 'no-key',
-      groq:      API_KEYS.groq      ? 'ok'       : 'no-key',
-      elevenlabs: API_KEYS.elevenlabs ? 'ok'     : 'no-key',
-      cartesia:  API_KEYS.cartesia  ? 'ok (fallback)' : 'no-key',
-      gemini:    API_KEYS.gemini    ? 'ok'       : 'no-key',
+      stt:       AI_CONFIG.deepgram.hasKey ? 'deepgram' : (AI_CONFIG.groq.hasKey ? 'groq-whisper' : 'browser'),
+      llm:       AI_CONFIG.groq.hasKey     ? 'groq'     : 'pollinations',
+      tts:       AI_CONFIG.elevenlabs.hasKey ? 'elevenlabs' : (AI_CONFIG.cartesia.hasKey ? 'cartesia' : 'browser'),
+      livekit:   AI_CONFIG.livekit.hasKey   ? 'ok'       : 'disabled',
+      deepgram:  AI_CONFIG.deepgram.hasKey  ? 'ok'       : 'no-key',
+      groq:      AI_CONFIG.groq.hasKey      ? 'ok'       : 'no-key',
+      elevenlabs: AI_CONFIG.elevenlabs.hasKey ? 'ok'     : 'no-key',
+      cartesia:  AI_CONFIG.cartesia.hasKey  ? 'ok (fallback)' : 'no-key',
+      gemini:    AI_CONFIG.gemini.hasKey    ? 'ok'       : 'no-key',
     };
   }
 

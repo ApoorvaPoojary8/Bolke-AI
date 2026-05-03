@@ -5,7 +5,7 @@
  */
 import { useState, useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
-import { API_KEYS } from '../utils/apiKeys.js';
+import { AI_CONFIG } from '../config/aiConfig.js';
 
 const LANG_NAMES = {
   hi: 'Hindi', kn: 'Kannada', ta: 'Tamil',
@@ -47,8 +47,8 @@ Respond ONLY in ${langName}.`;
   };
 
   // 1. Gemini Vision (Primary — natively supports CORS)
-  const geminiKey = API_KEYS.gemini;
-  if (geminiKey) {
+  const geminiKey = AI_CONFIG.gemini.key;
+  if (AI_CONFIG.gemini.hasKey) {
     try {
       const res = await fetchWithRetry(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
@@ -77,11 +77,11 @@ Respond ONLY in ${langName}.`;
   }
 
   // 2. NVIDIA Vision (Fallback — proxied to avoid CORS)
-  const nvidiaKey = API_KEYS.nvidia;
-  const nvidiaBase = API_KEYS.nvidiaBase || '/nvidia-api';
-  const visionModel = API_KEYS.nvidiaModel || 'meta/llama-3.2-11b-vision-instruct';
+  const nvidiaKey = AI_CONFIG.nvidia.key;
+  const nvidiaBase = AI_CONFIG.nvidia.base || '/nvidia-api';
+  const visionModel = AI_CONFIG.nvidia.model || 'meta/llama-3.2-11b-vision-instruct';
 
-  if (nvidiaKey) {
+  if (AI_CONFIG.nvidia.hasKey) {
     try {
       const res = await fetch(`${nvidiaBase}/chat/completions`, {
         method: 'POST',

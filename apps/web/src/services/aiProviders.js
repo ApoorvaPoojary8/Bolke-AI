@@ -14,7 +14,7 @@
  *            MediaRecorder (default, works without LiveKit)
  */
 
-import { API_KEYS } from '../utils/apiKeys.js';
+import { AI_CONFIG } from '../config/aiConfig.js';
 
 const SYSTEM_PROMPT = `You are BolKe, a voice assistant for low-literacy users in rural India.
 
@@ -110,7 +110,7 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 
 // ── Provider 1: Groq Llama 3.3 70B (PRIMARY) ─────────────────────────────────
 async function callGroq(transcript, language) {
-  const key = API_KEYS.groq;
+  const key = AI_CONFIG.groq.key;
   if (!key) throw new Error('No Groq key');
 
   const systemPrompt = language
@@ -145,7 +145,7 @@ async function callGroq(transcript, language) {
 
 // ── Provider 2: Groq Llama 3.1 8B (FAST FALLBACK) ────────────────────────────
 async function callGroqFast(transcript, language) {
-  const key = API_KEYS.groq;
+  const key = AI_CONFIG.groq.key;
   if (!key) throw new Error('No Groq key');
 
   const systemPrompt = language
@@ -179,7 +179,7 @@ async function callGroqFast(transcript, language) {
 
 // ── Provider 3: Gemini Flash (SECONDARY FALLBACK) ─────────────────────────────
 async function callGemini(transcript, language) {
-  const key = API_KEYS.gemini;
+  const key = AI_CONFIG.gemini.key;
   if (!key) throw new Error('No Gemini key');
 
   const systemPrompt = language
@@ -279,7 +279,7 @@ const DG_LANG_MAP = {
  *  - 200 hrs/month free tier
  */
 export async function transcribeWithDeepgram(audioBlob, langHint = null) {
-  const key = API_KEYS.deepgram;
+  const key = AI_CONFIG.deepgram.key;
   if (!key) throw new Error('No Deepgram key for STT');
 
   const params = new URLSearchParams({
@@ -365,7 +365,7 @@ async function convertBlobToWav(audioBlob) {
 }
 
 export async function transcribeWithGroq(audioBlob, langHint = null) {
-  const key = API_KEYS.groq;
+  const key = AI_CONFIG.groq.key;
   if (!key) throw new Error('No Groq key for STT');
 
   const baseType = (audioBlob.type || 'audio/webm').split(';')[0].trim();
@@ -450,7 +450,7 @@ const EL_VOICE_MALE   = 'pNInz6obpgDQGcFmaJgB'; // Adam — deep, professional
  * Falls back to Cartesia → browser speechSynthesis.
  */
 export async function speakWithElevenLabs(text, language = 'hi') {
-  const key = API_KEYS.elevenlabs;
+  const key = AI_CONFIG.elevenlabs.key;
 
   if (!key) {
     console.warn('[TTS] No ElevenLabs key, trying Cartesia fallback');
@@ -520,7 +520,7 @@ const VOICE_ENGLISH = '694f9389-aac1-45b6-b726-9d9369183238'; // Barbra — prof
  * Falls back to browser speechSynthesis if key is missing.
  */
 export async function speakWithCartesia(text, language = 'hi') {
-  const key = API_KEYS.cartesia;
+  const key = AI_CONFIG.cartesia.key;
 
   if (!key) {
     return speakReply(text, language);
