@@ -15,6 +15,45 @@
  */
 
 import { API_BASE_URL, DEMO_MODE, DEMO_RESPONSES } from '../utils/constants.js';
+
+// ── Anonymous Auth — auto-fetch JWT if missing or expired ─────────────────────
+let _authPromise = null; // deduplicate concurrent token requests
+
+async function ensureAuth() {
+  if (!API_BASE_URL) return null; // direct-AI mode — no token needed
+
+  const token   = localStorage.getItem('bolke_token');
+  const expiry  = Number(localStorage.getItem('bolke_token_expiry') ?? 0);
+  const isValid = token && Date.now() < expiry - 60_000; // refresh 60s before expiry
+
+  if (isValid) return token;
+
+  // Deduplicate: if a fetch is already in-flight, wait for it
+  if (!_authPromise) {
+    _authPromise = (async () => {
+      try {
+        const deviceId = getDeviceId();
+        const res = await fetch(`${API_BASE_URL}/v1/auth/anonymous`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ device_id: deviceId }),
+        });
+        if (!res.ok) throw new Error(`Auth failed: ${res.status}`);
+        const { access_token, expires_in } = await res.json();
+        localStorage.setItem('bolke_token', access_token);
+        localStorage.setItem('bolke_token_expiry', String(Date.now() + expires_in * 1000));
+        return access_token;
+      } catch (err) {
+        console.warn('[Auth] Anonymous token fetch failed — proceeding without token:', err.message);
+        return null;
+      } finally {
+        _authPromise = null;
+      }
+    })();
+  }
+
+  return _authPromise;
+}
 import {
   getAIReply,
   transcribeWithDeepgram,
@@ -80,7 +119,7 @@ export async function sendVoiceQuery(audioBlob, deviceId, langHint = null) {
   formData.append('device_id', deviceId);
   if (langHint) formData.append('client_lang_hint', langHint);
 
-  const token    = localStorage.getItem('bolke_token');
+  const token    = await ensureAuth();
   const response = await fetch(`${API_BASE_URL}/v1/voice`, {
     method:  'POST',
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -176,7 +215,7 @@ export async function sendChatMessage(message, language = 'hi') {
     };
   }
 
-  const token    = localStorage.getItem('bolke_token');
+  const token    = await ensureAuth();
   const response = await fetch(`${API_BASE_URL}/v1/chat`, {
     method:  'POST',
     headers: {
@@ -203,7 +242,7 @@ export async function sendChatMessage(message, language = 'hi') {
  * Used when VITE_LIVEKIT_URL is set for real-time audio streaming.
  */
 export async function getLiveKitToken(room = null) {
-  const token = localStorage.getItem('bolke_token');
+  const token    = await ensureAuth();
   const response = await fetch(`${API_BASE_URL}/v1/livekit/token`, {
     method:  'POST',
     headers: {
@@ -225,7 +264,7 @@ export async function triggerAction(intent, params = {}) {
     return { queued: true, estimated_seconds: 0, sms_will_arrive: false };
   }
 
-  const token    = localStorage.getItem('bolke_token');
+  const token    = await ensureAuth();
   const response = await fetch(`${API_BASE_URL}/v1/action/${intent}`, {
     method:  'POST',
     headers: {
