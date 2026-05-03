@@ -7,9 +7,7 @@ import crypto from 'crypto';
 
 export default async function chatRoutes(app: any) {
   // POST /v1/chat — text-based query (no STT needed)
-  app.post('/chat', {
-    preHandler: [requireAuth],
-  }, async (req: any, reply: any) => {
+  app.post('/chat', async (req: any, reply: any) => {
     const startTime = Date.now();
     const { message, language } = req.body ?? {};
 
