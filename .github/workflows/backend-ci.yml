@@ -2,8 +2,12 @@ name: Backend CI
 
 on:
   push:
-    paths: ['apps/backend/**', 'apps/web/**']
+    paths:
+      - 'apps/backend/**'
+      - 'apps/web/**'
+      - '.github/workflows/**'
   pull_request:
+  workflow_dispatch:
 
 jobs:
   security-scan:
