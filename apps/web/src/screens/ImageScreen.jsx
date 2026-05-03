@@ -5,6 +5,7 @@
  */
 import { useState, useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
+import { API_KEYS } from '../utils/apiKeys.js';
 
 const LANG_NAMES = {
   hi: 'Hindi', kn: 'Kannada', ta: 'Tamil',
@@ -46,7 +47,7 @@ Respond ONLY in ${langName}.`;
   };
 
   // 1. Gemini Vision (Primary — natively supports CORS)
-  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const geminiKey = API_KEYS.gemini;
   if (geminiKey) {
     try {
       const res = await fetchWithRetry(
@@ -76,9 +77,9 @@ Respond ONLY in ${langName}.`;
   }
 
   // 2. NVIDIA Vision (Fallback — proxied to avoid CORS)
-  const nvidiaKey = import.meta.env.VITE_NVIDIA_API_KEY;
-  const nvidiaBase = import.meta.env.VITE_NVIDIA_BASE_URL || '/nvidia-api';
-  const visionModel = import.meta.env.VITE_NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct';
+  const nvidiaKey = API_KEYS.nvidia;
+  const nvidiaBase = API_KEYS.nvidiaBase || '/nvidia-api';
+  const visionModel = API_KEYS.nvidiaModel || 'meta/llama-3.2-11b-vision-instruct';
 
   if (nvidiaKey) {
     try {

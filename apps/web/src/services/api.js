@@ -15,6 +15,7 @@
  */
 
 import { API_BASE_URL, DEMO_MODE, DEMO_RESPONSES } from '../utils/constants.js';
+import { API_KEYS } from '../utils/apiKeys.js';
 import {
   getAIReply,
   transcribeWithDeepgram,
@@ -29,19 +30,19 @@ export { cancelActiveTTS };
 
 // True when at least one AI key is available
 const HAS_AI_KEYS = !!(
-  import.meta.env.VITE_GROQ_API_KEY ||
-  import.meta.env.VITE_DEEPGRAM_API_KEY ||
-  import.meta.env.VITE_GEMINI_API_KEY
+  API_KEYS.groq ||
+  API_KEYS.deepgram ||
+  API_KEYS.gemini
 );
 
 // ── Primary TTS dispatcher ────────────────────────────────────────────────────
 // Chain: ElevenLabs → Cartesia → browser speechSynthesis
 export async function speak(text, language = 'hi') {
   cancelActiveTTS();
-  if (import.meta.env.VITE_ELEVENLABS_API_KEY) {
+  if (API_KEYS.elevenlabs) {
     return speakWithElevenLabs(text, language);
   }
-  if (import.meta.env.VITE_CARTESIA_API_KEY) {
+  if (API_KEYS.cartesia) {
     return speakWithCartesia(text, language);
   }
   return speakReply(text, language);
@@ -50,7 +51,7 @@ export async function speak(text, language = 'hi') {
 // ── Primary STT dispatcher ────────────────────────────────────────────────────
 // Use Deepgram if key available, else Groq Whisper
 async function transcribe(audioBlob, langHint) {
-  if (import.meta.env.VITE_DEEPGRAM_API_KEY) {
+  if (API_KEYS.deepgram) {
     try {
       const result = await transcribeWithDeepgram(audioBlob, langHint);
       if (result.transcript) return result;
@@ -139,8 +140,8 @@ async function runDirectAIPipeline(audioBlob, langHint) {
 
   // Determine which TTS provider will be used
   let ttsMode = 'browser';
-  if (import.meta.env.VITE_ELEVENLABS_API_KEY)    ttsMode = 'elevenlabs';
-  else if (import.meta.env.VITE_CARTESIA_API_KEY) ttsMode = 'cartesia';
+  if (API_KEYS.elevenlabs)    ttsMode = 'elevenlabs';
+  else if (API_KEYS.cartesia) ttsMode = 'cartesia';
 
   return {
     request_id:      `direct_${Date.now()}`,
@@ -250,15 +251,15 @@ export async function checkHealth() {
   if (!API_BASE_URL) {
     return {
       status:    'direct-ai',
-      stt:       import.meta.env.VITE_DEEPGRAM_API_KEY ? 'deepgram' : (import.meta.env.VITE_GROQ_API_KEY ? 'groq-whisper' : 'browser'),
-      llm:       import.meta.env.VITE_GROQ_API_KEY     ? 'groq'     : 'pollinations',
-      tts:       import.meta.env.VITE_ELEVENLABS_API_KEY ? 'elevenlabs' : (import.meta.env.VITE_CARTESIA_API_KEY ? 'cartesia' : 'browser'),
-      livekit:   import.meta.env.VITE_LIVEKIT_URL       ? 'ok'       : 'disabled',
-      deepgram:  import.meta.env.VITE_DEEPGRAM_API_KEY  ? 'ok'       : 'no-key',
-      groq:      import.meta.env.VITE_GROQ_API_KEY      ? 'ok'       : 'no-key',
-      elevenlabs: import.meta.env.VITE_ELEVENLABS_API_KEY ? 'ok'     : 'no-key',
-      cartesia:  import.meta.env.VITE_CARTESIA_API_KEY  ? 'ok (fallback)' : 'no-key',
-      gemini:    import.meta.env.VITE_GEMINI_API_KEY    ? 'ok'       : 'no-key',
+      stt:       API_KEYS.deepgram ? 'deepgram' : (API_KEYS.groq ? 'groq-whisper' : 'browser'),
+      llm:       API_KEYS.groq     ? 'groq'     : 'pollinations',
+      tts:       API_KEYS.elevenlabs ? 'elevenlabs' : (API_KEYS.cartesia ? 'cartesia' : 'browser'),
+      livekit:   API_KEYS.livekit   ? 'ok'       : 'disabled',
+      deepgram:  API_KEYS.deepgram  ? 'ok'       : 'no-key',
+      groq:      API_KEYS.groq      ? 'ok'       : 'no-key',
+      elevenlabs: API_KEYS.elevenlabs ? 'ok'     : 'no-key',
+      cartesia:  API_KEYS.cartesia  ? 'ok (fallback)' : 'no-key',
+      gemini:    API_KEYS.gemini    ? 'ok'       : 'no-key',
     };
   }
 
