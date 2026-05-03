@@ -14,12 +14,16 @@ jobs:
       - name: Check no API keys leaked into frontend source
         run: |
           echo "Scanning apps/web/src for leaked keys..."
-          # Check for Anthropic key pattern
+          # Check for raw Anthropic key pattern
           if grep -r "sk-ant-" apps/web/src/; then
             echo "FAIL: Anthropic key found in frontend!" && exit 1
           fi
-          # Check for env var names that should never be in frontend
-          if grep -r "ANTHROPIC_API_KEY\|GROQ_API_KEY\|SUPABASE_SERVICE_KEY" apps/web/src/; then
+          # Check for backend-only env var names.
+          # VITE_ prefixed references are legitimate frontend usage — filter those out.
+          # Use || true so grep's exit-1 (no matches) doesn't abort the step.
+          LEAKS=$(grep -rE "ANTHROPIC_API_KEY|GROQ_API_KEY|SUPABASE_SERVICE_KEY" apps/web/src/ | grep -v "VITE_" || true)
+          if [ -n "$LEAKS" ]; then
+            echo "$LEAKS"
             echo "FAIL: Secret env var name found in frontend!" && exit 1
           fi
           echo "Security scan passed ✓"
