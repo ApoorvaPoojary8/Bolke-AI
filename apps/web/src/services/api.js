@@ -22,7 +22,10 @@ import {
   speakWithElevenLabs,
   speakWithCartesia,
   speakReply,
+  cancelActiveTTS,
 } from './aiProviders.js';
+
+export { cancelActiveTTS };
 
 // True when at least one AI key is available
 const HAS_AI_KEYS = !!(
@@ -34,6 +37,7 @@ const HAS_AI_KEYS = !!(
 // ── Primary TTS dispatcher ────────────────────────────────────────────────────
 // Chain: ElevenLabs → Cartesia → browser speechSynthesis
 export async function speak(text, language = 'hi') {
+  cancelActiveTTS();
   if (import.meta.env.VITE_ELEVENLABS_API_KEY) {
     return speakWithElevenLabs(text, language);
   }
@@ -48,7 +52,9 @@ export async function speak(text, language = 'hi') {
 async function transcribe(audioBlob, langHint) {
   if (import.meta.env.VITE_DEEPGRAM_API_KEY) {
     try {
-      return await transcribeWithDeepgram(audioBlob, langHint);
+      const result = await transcribeWithDeepgram(audioBlob, langHint);
+      if (result.transcript) return result;
+      console.warn('[STT] Deepgram returned empty transcript, falling back to Groq Whisper');
     } catch (err) {
       console.warn('[STT] Deepgram failed, falling back to Groq Whisper:', err.message);
     }
@@ -129,8 +135,7 @@ async function runDirectAIPipeline(audioBlob, langHint) {
     throw err;
   }
 
-  // 3. TTS — ElevenLabs → Cartesia → browser fallback (non-blocking)
-  speak(aiReply.reply, aiReply.language).catch(() => {});
+  // 3. Determine which TTS provider will be used (App.jsx will trigger the actual audio)
 
   // Determine which TTS provider will be used
   let ttsMode = 'browser';
@@ -161,8 +166,7 @@ async function runDirectAIPipeline(audioBlob, langHint) {
 export async function sendChatMessage(message, language = 'hi') {
   if (!API_BASE_URL) {
     const startTime = Date.now();
-    const aiReply   = await getAIReply(message);
-    speak(aiReply.reply, aiReply.language).catch(() => {});
+    const aiReply   = await getAIReply(message, language);
     return {
       request_id:      `chat_${Date.now()}`,
       transcript:      message,

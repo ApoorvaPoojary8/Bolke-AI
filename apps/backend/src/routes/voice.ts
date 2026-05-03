@@ -77,7 +77,7 @@ export default async function voiceRoutes(app: any) {
     const transcript = await normalizeDialect(rawTranscript);
 
     // 3. AI intent parsing — Groq primary
-    const aiReply = await routeToAI(transcript);
+    const aiReply = await routeToAI(transcript, langHint || language);
 
     // 4. TTS — ElevenLabs Multilingual v2 (falls back to Cartesia → browser TTS)
     const audioOut = await synthesise(aiReply.reply, aiReply.language);

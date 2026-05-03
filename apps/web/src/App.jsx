@@ -20,7 +20,7 @@ import { ChatScreen }       from './screens/ChatScreen';
 import { useVoiceRecorder, useOfflineSpeech } from './hooks/useVoiceRecorder';
 import { useAudioPlayer }   from './hooks/useAudioPlayer';
 import { useOfflineCache }  from './hooks/useOfflineCache';
-import { sendVoiceQuery, triggerAction, getDeviceId, speak } from './services/api';
+import { sendVoiceQuery, triggerAction, getDeviceId, speak, cancelActiveTTS } from './services/api';
 import { STATES, DEMO_MODE } from './utils/constants';
 
 export default function App() {
@@ -67,6 +67,7 @@ export default function App() {
   /** HOME → LISTENING — User presses mic button */
   const handleStartRecording = useCallback(async () => {
     try {
+      cancelActiveTTS();
       stopAudio();
 
       if (!navigator.onLine) {
@@ -85,7 +86,7 @@ export default function App() {
       setErrorMessage('Mic access denied. Please allow microphone.');
       setScreen(STATES.FAILURE);
     }
-  }, [startRecording, startOffline, stopAudio]);
+  }, [startRecording, startOffline, stopAudio, cancelActiveTTS]);
 
   /** LISTENING → THINKING → REPLY (or FAILURE) — User releases mic button */
   const handleStopRecording = useCallback(async () => {
@@ -157,6 +158,7 @@ export default function App() {
 
   /** ANY → HOME */
   const handleGoHome = useCallback(() => {
+    cancelActiveTTS();
     stopAudio();
     stopOffline();
     offlineModeRef.current = false;
@@ -165,7 +167,7 @@ export default function App() {
     setResponse(null);
     setErrorMessage(null);
     setCurrentAction(null);
-  }, [stopAudio, stopOffline, cancelRecording]);
+  }, [stopAudio, stopOffline, cancelRecording, cancelActiveTTS]);
 
   /** FAILURE/REPLY → LISTENING */
   const handleSpeakAgain = useCallback(() => {

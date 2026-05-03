@@ -1,6 +1,6 @@
 import { routeToAI }        from '../services/ai/router.js';
 import { normalizeDialect } from '../services/ai/normalizer.js';
-import { synthesise }       from '../services/tts/elevenLabsTts.js';
+import { synthesise }       from '../services/tts/cartesiaTts.js';
 import { uploadAudio }      from '../utils/storage.js';
 import { requireAuth }      from '../middleware/auth.js';
 import crypto from 'crypto';
@@ -26,7 +26,7 @@ export default async function chatRoutes(app: any) {
     const normalizedMessage = await normalizeDialect(message.trim());
 
     // 2. AI intent + reply (Claude primary, fallback chain)
-    const aiReply = await routeToAI(normalizedMessage);
+    const aiReply = await routeToAI(normalizedMessage, langHint);
 
     // 3. TTS — generate audio for the reply
     let replyAudioUrl: string | null = null;

@@ -20,7 +20,7 @@ export function ListeningScreen({ audioLevel, onStopRecording }) {
         {/* Expanded mic button — 320dp, pulsing with amplitude */}
         <MicButton
           isListening={true}
-          onRelease={onStopRecording}
+          onPress={onStopRecording}
         />
       </div>
 

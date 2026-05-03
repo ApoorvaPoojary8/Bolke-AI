@@ -108,9 +108,13 @@ async function fetchWithRetry(url, options, maxRetries = 3) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // ── Provider 1: Groq Llama 3.3 70B (PRIMARY) ─────────────────────────────────
-async function callGroq(transcript) {
+async function callGroq(transcript, language) {
   const key = import.meta.env.VITE_GROQ_API_KEY;
   if (!key) throw new Error('No Groq key');
+
+  const systemPrompt = language
+    ? `${SYSTEM_PROMPT}\n\nIMPORTANT: The user's preferred language code is '${language}'. You MUST reply in this language.`
+    : SYSTEM_PROMPT;
 
   const res = await fetchWithRetry('https://api.groq.com/openai/v1/chat/completions', {
     method:  'POST',
@@ -121,7 +125,7 @@ async function callGroq(transcript) {
     body: JSON.stringify({
       model:           'llama-3.3-70b-versatile',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user',   content: transcript },
       ],
       max_tokens:      300,
@@ -139,9 +143,13 @@ async function callGroq(transcript) {
 }
 
 // ── Provider 2: Groq Llama 3.1 8B (FAST FALLBACK) ────────────────────────────
-async function callGroqFast(transcript) {
+async function callGroqFast(transcript, language) {
   const key = import.meta.env.VITE_GROQ_API_KEY;
   if (!key) throw new Error('No Groq key');
+
+  const systemPrompt = language
+    ? `${SYSTEM_PROMPT}\n\nIMPORTANT: The user's preferred language code is '${language}'. You MUST reply in this language.`
+    : SYSTEM_PROMPT;
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method:  'POST',
@@ -152,7 +160,7 @@ async function callGroqFast(transcript) {
     body: JSON.stringify({
       model:       'llama-3.1-8b-instant',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user',   content: transcript },
       ],
       max_tokens:  300,
@@ -169,9 +177,13 @@ async function callGroqFast(transcript) {
 }
 
 // ── Provider 3: Gemini Flash (SECONDARY FALLBACK) ─────────────────────────────
-async function callGemini(transcript) {
+async function callGemini(transcript, language) {
   const key = import.meta.env.VITE_GEMINI_API_KEY;
   if (!key) throw new Error('No Gemini key');
+
+  const systemPrompt = language
+    ? `${SYSTEM_PROMPT}\n\nIMPORTANT: The user's preferred language code is '${language}'. You MUST reply in this language.`
+    : SYSTEM_PROMPT;
 
   const res = await fetchWithRetry(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
@@ -179,7 +191,7 @@ async function callGemini(transcript) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{ parts: [{ text: transcript }], role: 'user' }],
         generationConfig: { maxOutputTokens: 300, temperature: 0.1 },
       }),
@@ -195,9 +207,13 @@ async function callGemini(transcript) {
 }
 
 // ── Provider 4: Pollinations (LAST RESORT — no key needed) ────────────────────
-async function callPollinations(transcript) {
+async function callPollinations(transcript, language) {
+  const systemPrompt = language
+    ? `${SYSTEM_PROMPT}\n\nIMPORTANT: The user's preferred language code is '${language}'. You MUST reply in this language.`
+    : SYSTEM_PROMPT;
+
   const prompt = encodeURIComponent(
-    `${SYSTEM_PROMPT}\n\nUser said: ${transcript}\n\nRespond with ONLY the JSON object.`
+    `${systemPrompt}\n\nUser said: ${transcript}\n\nRespond with ONLY the JSON object.`
   );
   const res = await fetch(
     `https://text.pollinations.ai/${prompt}?model=openai&json=true`,
@@ -223,7 +239,7 @@ export async function getAIReply(transcript, lang = 'hi') {
 
   for (const { name, fn } of providers) {
     try {
-      const result = await fn(transcript);
+      const result = await fn(transcript, lang);
       console.log(`[AI] ${name} responded successfully`);
       return { ...result, _provider: name };
     } catch (err) {
@@ -265,11 +281,8 @@ export async function transcribeWithDeepgram(audioBlob, langHint = null) {
   const key = import.meta.env.VITE_DEEPGRAM_API_KEY;
   if (!key) throw new Error('No Deepgram key for STT');
 
-  const dgLang = langHint ? (DG_LANG_MAP[langHint] ?? 'hi') : 'hi';
-
   const params = new URLSearchParams({
     model:           'nova-3',
-    language:        dgLang,
     detect_language: 'true',
     punctuate:       'true',
     smart_format:    'true',
@@ -365,7 +378,6 @@ export async function transcribeWithGroq(audioBlob, langHint = null) {
     form.append('file', blob, fname);
     form.append('model', 'whisper-large-v3-turbo');
     form.append('response_format', 'verbose_json');
-    if (langHint) form.append('language', langHint);
 
     const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
       method:  'POST',
@@ -471,12 +483,15 @@ export async function speakWithElevenLabs(text, language = 'hi') {
     const audioBuffer = await res.arrayBuffer();
     const blob        = new Blob([audioBuffer], { type: 'audio/mpeg' });
     const url         = URL.createObjectURL(blob);
+    cancelActiveTTS();
     const audio       = new Audio(url);
+    _activeTTSAudio   = audio;
 
     return new Promise((resolve) => {
-      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      audio.onended = () => { _activeTTSAudio = null; URL.revokeObjectURL(url); resolve(); };
+      audio.onerror = () => { _activeTTSAudio = null; URL.revokeObjectURL(url); resolve(); };
       audio.play().catch(() => {
+        _activeTTSAudio = null;
         URL.revokeObjectURL(url);
         resolve();
       });
@@ -543,12 +558,15 @@ export async function speakWithCartesia(text, language = 'hi') {
     const audioBuffer = await res.arrayBuffer();
     const blob        = new Blob([audioBuffer], { type: 'audio/mpeg' });
     const url         = URL.createObjectURL(blob);
+    cancelActiveTTS();
     const audio       = new Audio(url);
+    _activeTTSAudio   = audio;
 
     return new Promise((resolve) => {
-      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-      audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+      audio.onended = () => { _activeTTSAudio = null; URL.revokeObjectURL(url); resolve(); };
+      audio.onerror = () => { _activeTTSAudio = null; URL.revokeObjectURL(url); resolve(); };
       audio.play().catch(() => {
+        _activeTTSAudio = null;
         URL.revokeObjectURL(url);
         resolve();
       });
@@ -557,6 +575,17 @@ export async function speakWithCartesia(text, language = 'hi') {
     console.warn('[TTS] Cartesia failed, falling back to browser TTS:', err.message);
     return speakReply(text, language);
   }
+}
+
+// ── Active TTS tracker — ensures only one voice plays at a time ───────────────
+let _activeTTSAudio = null;
+
+export function cancelActiveTTS() {
+  if (_activeTTSAudio) {
+    try { _activeTTSAudio.pause(); } catch {}
+    _activeTTSAudio = null;
+  }
+  try { window.speechSynthesis?.cancel(); } catch {}
 }
 
 // ── TTS: Browser speechSynthesis (Offline / no-key fallback) ──────────────────
@@ -568,7 +597,7 @@ export function speakReply(text, language = 'hi') {
 
   return new Promise((resolve) => {
     if (!window.speechSynthesis) { resolve(); return; }
-    window.speechSynthesis.cancel();
+    cancelActiveTTS();
 
     const utter   = new SpeechSynthesisUtterance(text);
     utter.lang    = LANG_MAP[language] ?? 'hi-IN';

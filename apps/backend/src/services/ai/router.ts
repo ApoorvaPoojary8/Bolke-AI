@@ -33,10 +33,10 @@ function tryParseReply(raw: string): ClaudeReply | null {
   }
 }
 
-export async function routeToAI(transcript: string): Promise<ClaudeReply> {
+export async function routeToAI(transcript: string, language?: string): Promise<ClaudeReply> {
   // 1. Groq Llama 3.3 70B — PRIMARY
   try {
-    return await callGroq(transcript);
+    return await callGroq(transcript, language);
   } catch (err) {
     console.warn('[AI] Groq 70B failed:', err);
   }
@@ -44,7 +44,7 @@ export async function routeToAI(transcript: string): Promise<ClaudeReply> {
   // 2. Groq Llama 3.1 8B — FAST FALLBACK
   try {
     console.warn('[AI] Falling back to Groq 8B...');
-    const raw    = await callGroqFallback(transcript);
+    const raw    = await callGroqFallback(transcript, language);
     const parsed = tryParseReply(raw);
     if (parsed) return parsed;
   } catch (err) {
@@ -54,7 +54,7 @@ export async function routeToAI(transcript: string): Promise<ClaudeReply> {
   // 3. Pollinations — LAST RESORT (no key needed)
   try {
     console.warn('[AI] Falling back to Pollinations...');
-    const raw    = await callPollinationsFallback(transcript);
+    const raw    = await callPollinationsFallback(transcript, language);
     const parsed = tryParseReply(raw);
     if (parsed) return parsed;
   } catch (err) {

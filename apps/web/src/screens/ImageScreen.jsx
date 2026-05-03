@@ -30,8 +30,54 @@ Look at this document/image and explain what it is and what it says in simple ${
 Keep your answer to 2-3 short sentences. Use very simple words. Do not use any English jargon.
 Respond ONLY in ${langName}.`;
 
+  // Helper for Gemini exponential backoff
+  const fetchWithRetry = async (url, options, maxRetries = 3) => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const res = await fetch(url, options);
+      if (res.status === 429) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`[Vision] Gemini 429 rate-limited, retrying in ${delay}ms`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      return res;
+    }
+    throw new Error('429: Rate limit exceeded after retries');
+  };
+
+  // 1. Gemini Vision (Primary — natively supports CORS)
+  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (geminiKey) {
+    try {
+      const res = await fetchWithRetry(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: imageFile.type, data: base64 } },
+              ],
+            }],
+            generationConfig: { maxOutputTokens: 250, temperature: 0.2 },
+          }),
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        if (text) return { reply_text: text, language: lang };
+      }
+    } catch (e) {
+      console.warn('[Vision] Gemini failed:', e.message);
+    }
+  }
+
+  // 2. NVIDIA Vision (Fallback — proxied to avoid CORS)
   const nvidiaKey = import.meta.env.VITE_NVIDIA_API_KEY;
-  const nvidiaBase = import.meta.env.VITE_NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+  const nvidiaBase = import.meta.env.VITE_NVIDIA_BASE_URL || '/nvidia-api';
   const visionModel = import.meta.env.VITE_NVIDIA_VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct';
 
   if (nvidiaKey) {
@@ -65,36 +111,6 @@ Respond ONLY in ${langName}.`;
       }
     } catch (e) {
       console.warn('[Vision] NVIDIA failed:', e.message);
-    }
-  }
-
-  // Gemini Vision fallback
-  const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (geminiKey) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: imageFile.type, data: base64 } },
-              ],
-            }],
-            generationConfig: { maxOutputTokens: 250, temperature: 0.2 },
-          }),
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-        if (text) return { reply_text: text, language: lang };
-      }
-    } catch (e) {
-      console.warn('[Vision] Gemini failed:', e.message);
     }
   }
 

@@ -12,14 +12,18 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: '127.0.0.1', // force IPv4 for HMR WebSocket
-      port: 5173,
-      clientPort: 5173,
     },
     // Proxy backend API calls — avoids CORS and keeps WS on port 5173 only
     proxy: {
       '/v1': {
         target: 'http://127.0.0.1:3001',
         changeOrigin: true,
+        secure: false,
+      },
+      '/nvidia-api': {
+        target: 'https://integrate.api.nvidia.com/v1',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/nvidia-api/, ''),
         secure: false,
       },
     },

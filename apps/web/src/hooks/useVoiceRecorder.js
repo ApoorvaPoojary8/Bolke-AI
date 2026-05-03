@@ -16,8 +16,10 @@ export function useVoiceRecorder() {
   const chunksRef = useRef([]);
   const streamRef = useRef(null);
   const analyserRef = useRef(null);
+  const audioCtxRef = useRef(null);
   const animFrameRef = useRef(null);
   const timerRef = useRef(null);
+  const stopTimeoutRef = useRef(null);
 
   // Monitor audio levels for visual feedback
   const monitorLevels = useCallback(function monitorLevels() {
@@ -60,25 +62,47 @@ export function useVoiceRecorder() {
         return;
       }
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType,
-        });
-
-        // Clean up stream
+      const cleanup = (blob) => {
+        if (stopTimeoutRef.current) {
+          clearTimeout(stopTimeoutRef.current);
+          stopTimeoutRef.current = null;
+        }
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
-
+        if (audioCtxRef.current) {
+          audioCtxRef.current.close().catch(() => {});
+          audioCtxRef.current = null;
+        }
+        analyserRef.current = null;
         setIsRecording(false);
         setAudioLevel(0);
         chunksRef.current = [];
-
         resolve(blob);
       };
 
-      recorder.stop();
+      // Failsafe: if onstop never fires, resolve after 4 seconds
+      stopTimeoutRef.current = setTimeout(() => {
+        console.warn('[Recorder] onstop timed out — resolving with buffered data');
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        cleanup(blob.size > 0 ? blob : null);
+      }, 4000);
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
+        cleanup(blob);
+      };
+
+      recorder.onerror = () => {
+        cleanup(null);
+      };
+
+      try {
+        recorder.stop();
+      } catch {
+        cleanup(null);
+      }
     });
   }, []);
 
@@ -100,7 +124,11 @@ export function useVoiceRecorder() {
       streamRef.current = stream;
 
       // Set up audio analyser for amplitude visualization
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+      }
       const audioCtx = new AudioContext();
+      audioCtxRef.current = audioCtx;
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
@@ -149,8 +177,13 @@ export function useVoiceRecorder() {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (stopTimeoutRef.current) {
+      clearTimeout(stopTimeoutRef.current);
+      stopTimeoutRef.current = null;
+    }
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
     }
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
@@ -159,6 +192,11 @@ export function useVoiceRecorder() {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+    }
+    analyserRef.current = null;
     chunksRef.current = [];
     setIsRecording(false);
     setAudioLevel(0);

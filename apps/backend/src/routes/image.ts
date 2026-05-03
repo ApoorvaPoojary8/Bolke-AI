@@ -42,7 +42,7 @@ async function analyzeImageWithGroq(
   const prompt = `Target language ISO code: ${targetLanguage}. Analyse this document image and respond in the exact JSON format from your system prompt.`;
 
   const completion = await getGroq().chat.completions.create({
-    model:       'meta-llama/llama-4-scout-17b-16e-instruct',   // Groq multimodal vision
+    model:       'meta-llama/llama-3.2-11b-vision-preview',   // Groq multimodal vision
     max_tokens:  1024,
     messages: [
       { role: 'system', content: VISION_SYSTEM_PROMPT },

@@ -48,11 +48,15 @@ function tryParseReply(raw: string): ClaudeReply | null {
  * callGroq — Primary intent parser using Groq Llama 3.3 70B.
  * Uses JSON mode for strict structured output.
  */
-export async function callGroq(transcript: string): Promise<ClaudeReply> {
+export async function callGroq(transcript: string, language?: string): Promise<ClaudeReply> {
+  const systemPrompt = language
+    ? `${BOLKE_SYSTEM_PROMPT}\n\nIMPORTANT: The user's preferred language code is '${language}'. You MUST reply in this language.`
+    : BOLKE_SYSTEM_PROMPT;
+
   const completion = await getGroq().chat.completions.create({
     model:       'llama-3.3-70b-versatile',
     messages: [
-      { role: 'system', content: BOLKE_SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user',   content: transcript },
     ],
     max_tokens:  300,
@@ -70,11 +74,15 @@ export async function callGroq(transcript: string): Promise<ClaudeReply> {
 /**
  * callGroqFallback — Kept for backward compat (no JSON mode = more lenient)
  */
-export async function callGroqFallback(transcript: string): Promise<string> {
+export async function callGroqFallback(transcript: string, language?: string): Promise<string> {
+  const systemPrompt = language
+    ? `${BOLKE_SYSTEM_PROMPT}\n\nIMPORTANT: The user's preferred language code is '${language}'. You MUST reply in this language.`
+    : BOLKE_SYSTEM_PROMPT;
+
   const completion = await getGroq().chat.completions.create({
     model:       'llama-3.1-8b-instant',  // smaller, faster fallback
     messages: [
-      { role: 'system', content: BOLKE_SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user',   content: transcript },
     ],
     max_tokens:  300,
